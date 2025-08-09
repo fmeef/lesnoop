@@ -68,7 +68,7 @@ class BackgroundScanService : Service() {
         val pendingIntent = newPendingIntent(this)
         if (intent?.action != ACTION_RELOAD) {
             val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_FOREGROUND)
-                .setContentTitle("Blerf")
+                .setContentTitle("LeSnoop")
                 .setContentText("Scanning...\n(this uses location permission, but not actual geolocation)")
                 .setSmallIcon(R.drawable.ic_launcher_background)
                 .setTicker("fmef am tire")

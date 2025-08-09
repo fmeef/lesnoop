@@ -38,7 +38,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun BlerfTheme(
+fun LeSnoopTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
@@ -52,7 +52,7 @@ fun BlerfTheme(
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
-    
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,

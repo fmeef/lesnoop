@@ -43,7 +43,7 @@ import androidx.preference.PreferenceManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.rememberPermissionState
-import net.ballmerlabs.lesnoop.ui.theme.BlerfTheme
+import net.ballmerlabs.lesnoop.ui.theme.LeSnoopTheme
 import dagger.hilt.android.AndroidEntryPoint
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
         )
         disposable.add(disp)
         setContent {
-            BlerfTheme {
+            LeSnoopTheme {
                 Body {
                     scanSnoopService
                 }
@@ -141,7 +141,7 @@ fun ScopePermissions(
     val permissions = mutableListOf(
         PermissionText(
             permission = rememberPermissionState(permission = Manifest.permission.ACCESS_FINE_LOCATION),
-            excuse = "Blerf needs the ACCESS_FINE_LOCATION permission for performing offline bluetooth scans in the background" +
+            excuse = "LeSnoop needs the ACCESS_FINE_LOCATION permission for performing offline bluetooth scans in the background" +
                     " and locally geotagging the discovered devices. This information is never shared or transmitted in any way."
         )
     )

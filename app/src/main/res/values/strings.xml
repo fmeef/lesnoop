@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Blerf</string>
+    <string name="app_name">LeSnoop</string>
     <string name="scan_disclaimer">
         Initiate a long-running scan for devices in the background. This discovers both bluetooth
         LE advertises and attempts both a connection and service discovery. Please use as
