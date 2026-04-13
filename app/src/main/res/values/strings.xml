@@ -8,6 +8,7 @@
     </string>
     <string name="start_scan">Start scan</string>
     <string name="stop_scan">Stop scan</string>
+    <string name="batch_delay">Delay before attempting connection</string>
     <string name="background_scan">Background scan</string>
     <string name="scan">Scan</string>
     <string name="settings">Settings</string>
@@ -17,11 +18,16 @@
     <string name="not_granted">Permission %1$s not granted</string>
     <string name="invalid_file_path">Invalid file path</string>
     <string name="export">Export database</string>
+    <string name="wakelock_tag">net.ballmerlabs.scatterroutingservice.WAKE</string>
     <string name="indexed">Currently indexed %1$d devices</string>
     <string name="legacy_toggle">Legacy only scanning</string>
     <string name="connect_mode">Connect during scan</string>
     <string name="connect_phy">PHYs for connection</string>
+    <string name="max_concurrent_connections">Max concurrent connections</string>
     <string name="scan_phy">PHY for scanning</string>
     <string name="no_devices">No devices, swipe to refresh</string>
+    <string name="scan_mode">Scan mode</string>
+    <string name="report_delay_enabled">Report delay enabled</string>
+    <string name="report_delay">Report delay value</string>
 
 </resources>

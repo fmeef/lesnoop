@@ -4,18 +4,26 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Criteria
+import android.location.Location
 import android.location.LocationManager
 import android.os.Build
+import android.os.CancellationSignal
 import android.provider.Settings
-import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.polidea.rxandroidble3.scan.ScanResult
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Maybe
+import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
+import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.subjects.BehaviorSubject
 import net.ballmerlabs.lesnoop.Module
 import net.ballmerlabs.lesnoop.db.entity.DbScanResult
+import timber.log.Timber
 import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -26,49 +34,98 @@ fun Context.checkAirplaneMode(): Boolean {
 
 @Singleton
 class LocationTagger @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val locationService: LocationManager,
-    @Named(Module.EXECUTOR_COMPUTE)
-    private val executor: Executor){
-    fun tagLocation(scanResult: ScanResult): Maybe<DbScanResult> {
-        return Single.just(scanResult).flatMapMaybe { r ->
-            val criteria = Criteria().apply {
-                accuracy = Criteria.ACCURACY_FINE
-                isCostAllowed = false
-            }
-            val provider = if(context.checkAirplaneMode())
-                    LocationManager.GPS_PROVIDER
-                else
-                    locationService.getBestProvider(criteria, true)
+    @param:Named(Module.TIMEOUT_SCHEDULER) val timeoutScheduler: Scheduler,
+    @param:Named(Module.EXECUTOR_COMPUTE) private val executor: Executor
+) {
+    private val locationDisposable = AtomicReference<Disposable?>()
+    val locationSubject = BehaviorSubject.create<String>()
 
-            if (provider != null && locationService.isProviderEnabled(provider)) {
-                Maybe.create { m ->
-                    if (ActivityCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                        ) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        ) == PackageManager.PERMISSION_GRANTED
-                    ) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            locationService.getCurrentLocation(provider, null, executor) { l ->
-                                m.onSuccess(DbScanResult(r, location = l))
-                            }
+    private val location = AtomicReference<Location?>(null)
+
+
+
+    fun startLocationPoll() {
+        Timber.w( "startLocationPoll")
+        val obs = Completable.timer(120, TimeUnit.SECONDS, timeoutScheduler).andThen( getLocation())
+            .ignoreElement()
+            .repeat()
+            .retry()
+            .subscribe({ }, { err ->
+                Timber.e("failed to update location: $err")
+            })
+        locationDisposable.getAndSet(obs)?.dispose()
+    }
+
+    fun stopLocationPoll() {
+        Timber.w( "stopLocationPoll")
+        locationDisposable.getAndSet(null)?.dispose()
+    }
+
+
+    fun postLocation(location: Location?) {
+        this.location.set(location)
+        locationSubject.onNext(this.location.get()?.provider?:"none")
+    }
+
+
+    fun getLocation(): Maybe<Location> {
+        return Maybe.create { m ->
+            val provider = LocationManager.GPS_PROVIDER
+
+            Timber.w("starting with provider $provider")
+            val signal = CancellationSignal()
+            m.setCancellable {
+                Timber.w("location canceled!")
+                signal.cancel()
+            }
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    locationService.getCurrentLocation(provider, signal, executor) { l ->
+                        if (l != null) {
+                            m.onSuccess(l)
                         } else {
-                            locationService.requestSingleUpdate(provider, { l ->
-                                m.onSuccess(DbScanResult(r, location = l))
-                            }, null)
+                            Timber.w("got null location")
+                            m.onError(NullPointerException())
+                            //m.onComplete()
                         }
-                    } else {
-                        m.onError(SecurityException("missing location permission"))
                     }
+                } else {
+                    locationService.requestSingleUpdate(provider, { l ->
+                        m.onSuccess(l)
+                    }, null)
                 }
             } else {
-                Maybe.empty<DbScanResult>()
+                m.onError(SecurityException("missing location permission"))
+            }
+        }
+            .doOnError { err ->
+                Timber.e( "location error: $err")
+                postLocation(null)
+            }
+            .doOnSuccess { l ->
+                Timber.v( "setLocation: ${l.provider}")
+                postLocation(l)
             }
 
-        }.doOnSubscribe { Log.v(ScannerImpl.NAME, "getting location for ${scanResult.bleDevice.macAddress}") }
-            .doOnError { e -> Log.e(ScannerImpl.NAME, "failed to get location for ${scanResult.bleDevice.macAddress}: $e") }
+    }
+
+    fun tagLocation(scanResult: ScanResult, phyVal: Int?): Single<DbScanResult> {
+        return Single.defer {
+            val loc = location.get()
+            if (loc != null) {
+                Single.just(DbScanResult(scanResult, loc, phyVal))
+            } else {
+                Single.just(DbScanResult(scanResult,  null, phyVal))
+            }
+        }
     }
 }

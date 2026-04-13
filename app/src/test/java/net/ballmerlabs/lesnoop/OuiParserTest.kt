@@ -12,7 +12,7 @@ class OuiParserTest {
     fun loadResource() {
         val context = RuntimeEnvironment.getApplication()
         val parser = OuiParser(context)
-        val oui = parser.oui.blockingGet()
+        val oui = parser.oui.blockingFirst()
         assert(oui.isNotEmpty())
     }
 }

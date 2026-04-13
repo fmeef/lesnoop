@@ -1,12 +1,10 @@
 package net.ballmerlabs.lesnoop
 
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,17 +12,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.accompanist.swiperefresh.SwipeRefresh
 import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import com.polidea.rxandroidble3.scan.ScanResult
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
+import timber.log.Timber
 
 
 @Composable
-fun DeviceList(padding: PaddingValues, model: ScanViewModel) {
-    val context = LocalContext.current
+fun DeviceList(padding: PaddingValues) {
     val lazyListState = rememberLazyListState()
+    val model: ScanViewModel = hiltViewModel()
     val state = rememberSwipeRefreshState(isRefreshing = false)
     var scanInProgress by remember {
         model.scanInProgress
@@ -38,12 +38,12 @@ fun DeviceList(padding: PaddingValues, model: ScanViewModel) {
     }
 
     SwipeRefresh(modifier = Modifier.padding(padding), state = state, onRefresh = {
-        val scan = context.getScan(model.scanBuilder)
+        val scan = model.scannerFactory.createScanner()
         state.isRefreshing = true
-        val disp = scan.startScan()
+        val disp = scan.startScan(false)
             .onErrorComplete()
             .distinct { s -> s.bleDevice.macAddress }
-            .doOnNext { r -> Log.v("debug", "r $r") }
+            .doOnNext { r -> Timber.v( "r $r") }
             .doOnSubscribe { d ->
                 if (scanInProgress != null) {
                     scanInProgress?.dispose()

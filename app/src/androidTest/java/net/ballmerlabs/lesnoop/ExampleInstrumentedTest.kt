@@ -32,7 +32,7 @@ class ExampleInstrumentedTest {
     fun ouiParseTest() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val parser = OuiParser(context)
-        val oui = parser.oui.blockingGet()
+        val oui = parser.oui.blockingFirst()
         val testRegex = "[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}".toRegex()
         Log.v("debug", "ouisize ${oui.size}")
         assert(oui.isNotEmpty())

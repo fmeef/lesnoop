@@ -2,20 +2,34 @@ package net.ballmerlabs.lesnoop.db
 
 import android.content.ContentValues
 import android.database.sqlite.SQLiteDatabase
-import androidx.room.*
+import androidx.room.AutoMigration
+import androidx.room.Database
+import androidx.room.RenameTable
+import androidx.room.RoomDatabase
+import androidx.room.TypeConverter
+import androidx.room.TypeConverters
 import androidx.room.migration.AutoMigrationSpec
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import net.ballmerlabs.lesnoop.db.entity.*
-import java.util.*
+import net.ballmerlabs.lesnoop.db.entity.Characteristic
+import net.ballmerlabs.lesnoop.db.entity.DbLocation
+import net.ballmerlabs.lesnoop.db.entity.DbScanResult
+import net.ballmerlabs.lesnoop.db.entity.Descriptor
+import net.ballmerlabs.lesnoop.db.entity.DiscoveredService
+import net.ballmerlabs.lesnoop.db.entity.Metrics
+import net.ballmerlabs.lesnoop.db.entity.MetricsScanResultMapping
+import net.ballmerlabs.lesnoop.db.entity.ServiceScanResultMapping
+import java.util.UUID
 
 val MIGATION_2_3 = object : Migration(2, 3) {
     override fun migrate(database: SupportSQLiteDatabase) {
         database.execSQL("DROP INDEX index_characteristics_uuid_parentService")
         database.execSQL("ALTER TABLE characteristics RENAME TO characteristics_old")
-        database.execSQL("CREATE TABLE IF NOT EXISTS `characteristics` " +
-                "(`uid` INTEGER PRIMARY KEY AUTOINCREMENT, `uuid` TEXT NOT NULL, `parentService` INTEGER" +
-                ")")
+        database.execSQL(
+            "CREATE TABLE IF NOT EXISTS `characteristics` " +
+                    "(`uid` INTEGER PRIMARY KEY AUTOINCREMENT, `uuid` TEXT NOT NULL, `parentService` INTEGER" +
+                    ")"
+        )
         database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_characteristics_uuid_parentService` ON `characteristics` (`uuid`, `parentService`)")
 
 
@@ -101,20 +115,23 @@ class UuidTypeConverter {
         DiscoveredService::class,
         Descriptor::class,
         DbLocation::class,
-        ServiceScanResultMapping::class
-               ],
+        ServiceScanResultMapping::class,
+        Metrics::class,
+        MetricsScanResultMapping::class
+    ],
     exportSchema = true,
-    version = 7,
+    version = 8,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
-        AutoMigration(from = 6, 7)
-       // AutoMigration(from = 5, to = 6, spec = ScanDatabase.AutoMigrationMappingRename::class)
+        AutoMigration(from = 6, 7),
+        AutoMigration(from = 7, to = 8)
+        // AutoMigration(from = 5, to = 6, spec = ScanDatabase.AutoMigrationMappingRename::class)
     ]
 )
 @TypeConverters(UuidTypeConverter::class)
-abstract class ScanDatabase: RoomDatabase() {
+abstract class ScanDatabase : RoomDatabase() {
     abstract fun scanResultsDao(): ScanResultDao
 
     @RenameTable(fromTableName = "ServiceScanResultMapping", toTableName = "scan_service_mapping")
-    class AutoMigrationMappingRename(): AutoMigrationSpec
+    class AutoMigrationMappingRename : AutoMigrationSpec
 }

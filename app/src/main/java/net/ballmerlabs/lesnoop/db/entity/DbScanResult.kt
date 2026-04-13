@@ -5,7 +5,6 @@ import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.polidea.rxandroidble3.PhyPair
 
 @Entity(
     tableName = "scan_results"
@@ -20,6 +19,7 @@ data class DbScanResult(
     val scanPhy: Int?,
     val scanRecord: ByteArray,
     @Embedded val location: DbLocation? = null
+
 ) {
     constructor(scanResult: com.polidea.rxandroidble3.scan.ScanResult, location: Location? = null, phy: Int? = null): this(
         macAddress = scanResult.bleDevice.macAddress,
