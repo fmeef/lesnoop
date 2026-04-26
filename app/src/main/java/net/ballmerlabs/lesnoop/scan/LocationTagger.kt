@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.location.Criteria
 import android.location.Location
 import android.location.LocationManager
+import android.location.LocationRequest
 import android.os.Build
 import android.os.CancellationSignal
 import android.provider.Settings
@@ -48,7 +49,9 @@ class LocationTagger @Inject constructor(
 
     fun startLocationPoll() {
         Timber.w( "startLocationPoll")
-        val obs = Completable.timer(120, TimeUnit.SECONDS, timeoutScheduler).andThen( getLocation())
+        val obs = Completable.timer(1, TimeUnit.SECONDS, timeoutScheduler).andThen(
+            getLocation()
+        )
             .ignoreElement()
             .repeat()
             .retry()
@@ -72,7 +75,7 @@ class LocationTagger @Inject constructor(
 
     fun getLocation(): Maybe<Location> {
         return Maybe.create { m ->
-            val provider = LocationManager.GPS_PROVIDER
+            val provider = LocationManager.FUSED_PROVIDER
 
             Timber.w("starting with provider $provider")
             val signal = CancellationSignal()
@@ -83,13 +86,16 @@ class LocationTagger @Inject constructor(
             if (ActivityCompat.checkSelfPermission(
                     context,
                     Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                ) == PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
                     context,
                     Manifest.permission.ACCESS_COARSE_LOCATION
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    locationService.getCurrentLocation(provider, signal, executor) { l ->
+                    locationService.getCurrentLocation(provider,
+                        LocationRequest.Builder(1000)
+                            .setQuality(LocationRequest.QUALITY_BALANCED_POWER_ACCURACY)
+                            .build(),signal, executor) { l ->
                         if (l != null) {
                             m.onSuccess(l)
                         } else {
