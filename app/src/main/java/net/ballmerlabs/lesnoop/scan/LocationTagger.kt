@@ -75,7 +75,10 @@ class LocationTagger @Inject constructor(
 
     fun getLocation(): Maybe<Location> {
         return Maybe.create { m ->
-            val provider = LocationManager.FUSED_PROVIDER
+            val provider =  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                LocationManager.FUSED_PROVIDER
+            else
+                LocationManager.GPS_PROVIDER
 
             Timber.w("starting with provider $provider")
             val signal = CancellationSignal()
@@ -91,7 +94,7 @@ class LocationTagger @Inject constructor(
                     Manifest.permission.ACCESS_COARSE_LOCATION
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     locationService.getCurrentLocation(provider,
                         LocationRequest.Builder(1000)
                             .setQuality(LocationRequest.QUALITY_BALANCED_POWER_ACCURACY)
@@ -100,11 +103,19 @@ class LocationTagger @Inject constructor(
                             m.onSuccess(l)
                         } else {
                             Timber.w("got null location")
-                            m.onError(NullPointerException())
-                            //m.onComplete()
+                            m.onComplete()
                         }
                     }
-                } else {
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    locationService.getCurrentLocation(provider, signal, executor) { l ->
+                        if (l != null) {
+                            m.onSuccess(l)
+                        } else {
+                            Timber.w("got null location")
+                            m.onComplete()
+                        }
+                    }
+                }else {
                     locationService.requestSingleUpdate(provider, { l ->
                         m.onSuccess(l)
                     }, null)
