@@ -259,7 +259,7 @@ fun ScanDialog(modifier: Modifier = Modifier, s: () -> ScannerFactory) {
 fun ScanPage(s: () -> ScannerFactory, prefs: SharedPreferences) {
 
     val service by remember { derivedStateOf(s) }
-    val legacy = remember { mutableStateOf(false) }
+    val legacy = remember { mutableStateOf(prefs.getBoolean(ScannerFactory.PREF_LEGACY, false)) }
     val selected = remember {
         val t = mutableStateListOf<String>()
         t.addAll(service.getPhy())

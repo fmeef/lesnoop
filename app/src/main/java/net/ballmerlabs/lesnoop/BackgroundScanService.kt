@@ -42,7 +42,7 @@ fun newPendingIntent(context: Context, c: Class<*>): PendingIntent =
                 context,
                 code,
                 it,
-                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_CANCEL_CURRENT
             )
         } else {
             PendingIntent.getBroadcast(
@@ -161,11 +161,10 @@ class BackgroundScanService : Service() {
         wakeLockProvider.releaseAll()
         running.postValue(false)
         val pendingIntent = newPendingIntent(this, NonLegacyBroadcastReceiver::class.java)
-//        val legacyIntent = newPendingIntent(this, LegacyBroadcastReceiver::class.java)
-
+        val legacyIntent = newPendingIntent(this, LegacyBroadcastReceiver::class.java)
         clientScanner.createScanner().setScanRunning(false)
         client.backgroundScanner.stopBackgroundBleScan(pendingIntent)
-//        client.backgroundScanner.stopBackgroundBleScan(legacyIntent)
+        client.backgroundScanner.stopBackgroundBleScan(legacyIntent)
         clientScanner.createScanner().stopScanForeground()
         insertQueue.stopProcess()
         locationTagger.stopLocationPoll()

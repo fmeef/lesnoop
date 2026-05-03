@@ -37,6 +37,7 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.disposables.Disposable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import net.ballmerlabs.lesnoop.BackgroundScanService
+import net.ballmerlabs.lesnoop.LegacyBroadcastReceiver
 import net.ballmerlabs.lesnoop.Module
 import net.ballmerlabs.lesnoop.NonLegacyBroadcastReceiver
 import net.ballmerlabs.lesnoop.PREF_BACKGROUND_SCAN
@@ -121,6 +122,8 @@ class ScannerImpl @Inject constructor(
     override fun pauseScan() {
         val pendingIntent =
             newPendingIntent(applicationContext, NonLegacyBroadcastReceiver::class.java)
+        val legacyIntent  =
+            newPendingIntent(applicationContext, LegacyBroadcastReceiver::class.java)
         val scanner = bluetoothManager.adapter?.bluetoothLeScanner
         if (ActivityCompat.checkSelfPermission(
                 applicationContext,
@@ -130,6 +133,7 @@ class ScannerImpl @Inject constructor(
             return
         }
         scanner?.stopScan(pendingIntent)
+        scanner?.stopScan(legacyIntent)
     }
 
     override fun unpauseScan() {
@@ -137,6 +141,7 @@ class ScannerImpl @Inject constructor(
         if (scanRunning.get()) {
             val pendingIntent =
                 newPendingIntent(applicationContext, NonLegacyBroadcastReceiver::class.java)
+            val legacyIntent = newPendingIntent(applicationContext, LegacyBroadcastReceiver::class.java)
             val scanner = bluetoothManager.adapter?.bluetoothLeScanner
 
             val legacy = prefs.getBoolean(PREF_LEGACY, false)
@@ -146,20 +151,6 @@ class ScannerImpl @Inject constructor(
             val phyVal = service.phyToVal(phy)
             val reportDelay = prefs.getLong(PREF_REPORT_DELAY, 3000)
             val reportDelayEnabled = prefs.getBoolean(PREF_REPORT_DELAY_ENABLED, false)
-            val settings =
-                android.bluetooth.le.ScanSettings.Builder()
-                    .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER)
-                    .apply {
-                        if (phyVal != null)
-                            setPhy(phyVal)
-                    }
-                    .setLegacy(legacy)
-                    .apply {
-                        if (reportDelayEnabled)
-                            setReportDelay(reportDelay)
-                    }.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
-                    .setCallbackType(android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-                    .build()
             if (ActivityCompat.checkSelfPermission(
                     applicationContext,
                     Manifest.permission.BLUETOOTH_SCAN
@@ -167,11 +158,49 @@ class ScannerImpl @Inject constructor(
             ) {
                 return
             }
+            val settings =
+                android.bluetooth.le.ScanSettings.Builder()
+                    .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER)
+                    .apply {
+                        if (phyVal != null)
+                            setPhy(phyVal)
+                    }
+                    .setLegacy(false)
+                    .apply {
+                        if (reportDelayEnabled)
+                            setReportDelay(reportDelay)
+                    }.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                    .setCallbackType(android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                    .build()
+            if (legacy) {
+                val legacySettings =
+                    android.bluetooth.le.ScanSettings.Builder()
+                        .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER)
+                        .apply {
+                            if (phyVal != null)
+                                setPhy(phyVal)
+                        }
+                        .setLegacy(true)
+                        .apply {
+                            if (reportDelayEnabled)
+                                setReportDelay(reportDelay)
+                        }.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                        .setCallbackType(android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                        .build()
+
+                scanner?.startScan(
+                    listOf(),
+                    legacySettings,
+                    legacyIntent
+                )
+            }
             scanner?.startScan(
-                listOf(android.bluetooth.le.ScanFilter.Builder().build()),
+                listOf(),
                 settings,
                 pendingIntent
             )
+
+
         }
     }
 
