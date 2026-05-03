@@ -1,5 +1,6 @@
 package net.ballmerlabs.lesnoop
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.PowerManager
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,9 +21,10 @@ class WakeLockProviderImpl @Inject constructor(
             R.string.wakelock_tag
         )
     )
+    @SuppressLint("WakelockTimeout")
     override fun hold(): Int {
         if(!wakeLock.isHeld)
-            wakeLock.acquire(10*60*1000L)
+            wakeLock.acquire()
         return counter.incrementAndGet()
     }
 

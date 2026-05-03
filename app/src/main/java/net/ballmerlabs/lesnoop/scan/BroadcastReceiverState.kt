@@ -9,7 +9,6 @@ import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.disposables.Disposable
 import net.ballmerlabs.lesnoop.Module
 import net.ballmerlabs.lesnoop.ScannerFactory
-import net.ballmerlabs.lesnoop.WakeLockProvider
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -26,7 +25,6 @@ class BroadcastReceiverState @Inject constructor(
     val queue: ConnectQueue,
     val insertQueue: InsertQueue,
     val scanner: ScannerFactory,
-    val wakeLockProvider: WakeLockProvider
 ) {
     private val batch = ConcurrentHashMap<String, Completable>()
     private val connected = ConcurrentHashMap<String, Boolean>()
@@ -59,7 +57,6 @@ class BroadcastReceiverState @Inject constructor(
     fun executeBatch(result: ScanResult) {
         val s = scanner.createScanner()
         val f = s.insertResult(result)
-            .doOnSubscribe { wakeLockProvider.hold() }
             .doOnSuccess { Timber.v( "inserted result?") }
             .flatMapMaybe { scanResult ->
                 s.discoverServices(
@@ -74,7 +71,6 @@ class BroadcastReceiverState @Inject constructor(
             .doFinally {
                 batch.remove(result.bleDevice.macAddress)
                 connected.remove(result.bleDevice.macAddress)
-                wakeLockProvider.release()
                 Timber.v( "removing device ${result.bleDevice.macAddress}")
             }
 

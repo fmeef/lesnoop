@@ -80,6 +80,9 @@ class BackgroundScanService : Service() {
     @Inject
     lateinit var locationTagger: LocationTagger
 
+    @Inject
+    lateinit var wakeLockProvider: WakeLockProvider
+
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -87,6 +90,7 @@ class BackgroundScanService : Service() {
             .getString(ScannerFactory.PREF_SCAN_MODE, ScannerFactory.SCAN_MODE_BATCH)
             ?: ScannerFactory.SCAN_MODE_BATCH
         if (intent?.action != ACTION_RELOAD) {
+            wakeLockProvider.hold()
             val notification =
                 NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_FOREGROUND)
                     .setContentTitle("LeSnoop")
@@ -154,6 +158,7 @@ class BackgroundScanService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.w("debug", "service stopped")
+        wakeLockProvider.releaseAll()
         running.postValue(false)
         val pendingIntent = newPendingIntent(this, NonLegacyBroadcastReceiver::class.java)
 //        val legacyIntent = newPendingIntent(this, LegacyBroadcastReceiver::class.java)
@@ -165,6 +170,7 @@ class BackgroundScanService : Service() {
         insertQueue.stopProcess()
         locationTagger.stopLocationPoll()
         queue.shutdown()
+
 
         /*
         WorkManager.getInstance(this)
