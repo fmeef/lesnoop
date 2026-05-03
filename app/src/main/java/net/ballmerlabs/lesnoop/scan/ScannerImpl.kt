@@ -148,6 +148,7 @@ class ScannerImpl @Inject constructor(
             val phy = prefs.getString(
                 PREF_PRIMARY_PHY, PHY_1M
             ) ?: PHY_1M
+            val scanPower = prefs.getInt(ScannerFactory.PREF_SCAN_POWER, android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER)
             val phyVal = service.phyToVal(phy)
             val reportDelay = prefs.getLong(PREF_REPORT_DELAY, 3000)
             val reportDelayEnabled = prefs.getBoolean(PREF_REPORT_DELAY_ENABLED, false)
@@ -160,22 +161,23 @@ class ScannerImpl @Inject constructor(
             }
             val settings =
                 android.bluetooth.le.ScanSettings.Builder()
-                    .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER)
+                    .setScanMode(scanPower)
                     .apply {
                         if (phyVal != null)
-                            setPhy(phyVal)
+                        setPhy(phyVal)
                     }
                     .setLegacy(false)
                     .apply {
                         if (reportDelayEnabled)
                             setReportDelay(reportDelay)
                     }.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                    .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
                     .setCallbackType(android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                     .build()
             if (legacy) {
                 val legacySettings =
                     android.bluetooth.le.ScanSettings.Builder()
-                        .setScanMode(android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER)
+                        .setScanMode(scanPower)
                         .apply {
                             if (phyVal != null)
                                 setPhy(phyVal)
@@ -185,6 +187,7 @@ class ScannerImpl @Inject constructor(
                             if (reportDelayEnabled)
                                 setReportDelay(reportDelay)
                         }.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                        .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
                         .setCallbackType(android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                         .build()
 

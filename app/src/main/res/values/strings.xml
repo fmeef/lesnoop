@@ -23,6 +23,7 @@
     <string name="legacy_toggle">Legacy only scanning</string>
     <string name="connect_mode">Connect during scan</string>
     <string name="connect_phy">PHYs for connection</string>
+    <string name="scan_power">Scan power setting</string>
     <string name="max_concurrent_connections">Max concurrent connections</string>
     <string name="scan_phy">PHY for scanning</string>
     <string name="no_devices">No devices, swipe to refresh</string>

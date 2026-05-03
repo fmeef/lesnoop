@@ -1,8 +1,10 @@
 package net.ballmerlabs.lesnoop
 
 import android.Manifest
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.SharedPreferences
+import android.health.connect.datatypes.units.Power
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -43,11 +45,14 @@ import androidx.compose.material3.TooltipState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.IntState
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -260,6 +265,9 @@ fun ScanPage(s: () -> ScannerFactory, prefs: SharedPreferences) {
 
     val service by remember { derivedStateOf(s) }
     val legacy = remember { mutableStateOf(prefs.getBoolean(ScannerFactory.PREF_LEGACY, false)) }
+    val scanPower = remember {
+        mutableIntStateOf(prefs.getInt(ScannerFactory.PREF_SCAN_POWER, android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER) )
+    }
     val selected = remember {
         val t = mutableStateListOf<String>()
         t.addAll(service.getPhy())
@@ -386,6 +394,20 @@ fun ScanPage(s: () -> ScannerFactory, prefs: SharedPreferences) {
                     PhyButton(mode = ScannerFactory.PHY_2M, selected = selected)
                 }
             }
+
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(text = stringResource(id = R.string.scan_power))
+
+                    PowerButton(mode = ScanSettings.SCAN_MODE_LOW_POWER, selected = scanPower)
+                    PowerButton(mode = ScanSettings.SCAN_MODE_BALANCED, selected = scanPower)
+                    PowerButton(mode = ScanSettings.SCAN_MODE_LOW_LATENCY, selected = scanPower)
+                    PowerButton(mode = ScanSettings.SCAN_MODE_OPPORTUNISTIC, selected = scanPower)
+            }
+
+
             Column(
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -588,6 +610,28 @@ fun PhyButton(modifier: Modifier = Modifier, mode: String, selected: SnapshotSta
             }
         })
         Text(text = mode)
+    }
+}
+
+
+@Composable
+fun PowerButton(modifier: Modifier = Modifier, mode: Int, selected: MutableIntState) {
+    val context = LocalContext.current
+    val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(selected = selected.intValue == mode, onClick = {
+            prefs.edit {
+                putInt(ScannerFactory.PREF_SCAN_POWER, mode)
+                selected.intValue = mode
+            }
+        })
+        Text(text = when(mode) {
+            ScanSettings.SCAN_MODE_LOW_POWER -> "low power"
+            ScanSettings.SCAN_MODE_BALANCED -> "balanced"
+            ScanSettings.SCAN_MODE_OPPORTUNISTIC -> "opportunistic"
+            ScanSettings.SCAN_MODE_LOW_LATENCY -> "lowlatency"
+            else -> "invalid $mode"
+        })
     }
 }
 

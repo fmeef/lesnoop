@@ -155,5 +155,6 @@ class ScannerFactory @Inject constructor(
         const val PREF_CONNECT = "connect"
         const val PREF_DELAY = "connect-delay"
         const val PREF_SCAN_MODE = "scan-mode"
+        const val PREF_SCAN_POWER = "scan-power"
     }
 }
