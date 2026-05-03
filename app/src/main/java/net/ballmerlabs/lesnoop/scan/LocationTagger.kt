@@ -22,6 +22,7 @@ import io.reactivex.rxjava3.subjects.BehaviorSubject
 import net.ballmerlabs.lesnoop.Module
 import net.ballmerlabs.lesnoop.db.entity.DbScanResult
 import timber.log.Timber
+import java.util.Date
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -139,9 +140,9 @@ class LocationTagger @Inject constructor(
         return Single.defer {
             val loc = location.get()
             if (loc != null) {
-                Single.just(DbScanResult(scanResult, loc, phyVal))
+                Single.just(DbScanResult(scanResult, loc, phyVal, timestamp = Date().time))
             } else {
-                Single.just(DbScanResult(scanResult,  null, phyVal))
+                Single.just(DbScanResult(scanResult,  null, phyVal,  timestamp = Date().time))
             }
         }
     }

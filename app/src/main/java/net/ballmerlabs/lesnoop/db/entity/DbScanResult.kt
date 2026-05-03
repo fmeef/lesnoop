@@ -5,6 +5,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import java.util.Date
 
 @Entity(
     tableName = "scan_results"
@@ -18,16 +19,23 @@ data class DbScanResult(
     @ColumnInfo(defaultValue = "null")
     val scanPhy: Int?,
     val scanRecord: ByteArray,
-    @Embedded val location: DbLocation? = null
+    val timestamp: Long? = null,
+    @Embedded val location: DbLocation? = null,
 
 ) {
-    constructor(scanResult: com.polidea.rxandroidble3.scan.ScanResult, location: Location? = null, phy: Int? = null): this(
+    constructor(
+        scanResult: com.polidea.rxandroidble3.scan.ScanResult,
+        location: Location? = null,
+        phy: Int? = null,
+        timestamp: Long? = Date().time
+    ): this(
         macAddress = scanResult.bleDevice.macAddress,
         name = scanResult.bleDevice.name,
         rssi = scanResult.rssi,
         scanPhy = phy,
         scanRecord = scanResult.scanRecord.bytes,
-        location = if (location != null) DbLocation(location) else null
+        location = if (location != null) DbLocation(location) else null,
+        timestamp = Date().time
     )
 
     override fun equals(other: Any?): Boolean {
