@@ -393,25 +393,9 @@ class ScannerImpl @Inject constructor(
     override fun discoverServices(scanResult: RxBleDevice, dbid: Long?): Single<Boolean> {
         return if (prefs.getBoolean(ScannerFactory.PREF_CONNECT, false)) {
             scanResult.establishConnection(
-                true,
-                Timeout(300, TimeUnit.SECONDS)
-            ).timeout(60, TimeUnit.SECONDS, timeoutScheduler)
-                .onErrorResumeNext { err: Throwable ->
-                    when (err) {
-                        is BleDisconnectedException -> when (err.state) {
-                            135 -> scanResult.observeConnectionStateChanges()
-                                .takeUntil { v ->  v == RxBleConnection.RxBleConnectionState.DISCONNECTED }
-                                .ignoreElements()
-                                .andThen( scanResult.establishConnection(false))
-                            else -> Observable.error(err)
-                        }
-                        is TimeoutException -> scanResult.observeConnectionStateChanges()
-                            .takeUntil { v ->  v == RxBleConnection.RxBleConnectionState.DISCONNECTED }
-                            .ignoreElements()
-                            .andThen( scanResult.establishConnection(false))
-                        else -> Observable.error(err)
-                    }
-                }
+                false,
+                Timeout(30, TimeUnit.SECONDS)
+            ).timeout(35, TimeUnit.SECONDS, timeoutScheduler)
                 .doOnDispose { Timber.tag("debug").e("connection disposed") }
                 .doOnSubscribe {
                     Timber.v( "establishConnection ${scanResult.macAddress}")
