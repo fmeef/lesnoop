@@ -14,7 +14,7 @@ interface Scanner : Disposable {
     fun stopScanBackground()
     fun scanForeground(legacy: Boolean)
     fun stopScanForeground()
-    fun insertResult(scanResult: ScanResult): Single<Pair<Long, ScanResult>>
+    fun insertResult(scanResult: ScanResult, legacy: Boolean): Single<Pair<Long, ScanResult>>
     fun discoverServices(scanResult: RxBleDevice, dbid: Long? = null): Single<Boolean>
     fun serviceState(): LiveData<Boolean>
     fun serviceRunning(): LiveData<Boolean>

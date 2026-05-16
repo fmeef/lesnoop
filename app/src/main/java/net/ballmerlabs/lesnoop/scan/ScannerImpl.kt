@@ -137,7 +137,6 @@ class ScannerImpl @Inject constructor(
     }
 
     override fun unpauseScan() {
-        Timber.v( "unpauseScan ${serviceState().value}")
         if (scanRunning.get()) {
             val pendingIntent =
                 newPendingIntent(applicationContext, NonLegacyBroadcastReceiver::class.java)
@@ -159,6 +158,9 @@ class ScannerImpl @Inject constructor(
             ) {
                 return
             }
+
+            Timber.v( "unpauseScan ${serviceState().value} reportDelayEnabled=$reportDelayEnabled reportDelay=$reportDelay")
+
             val settings =
                 android.bluetooth.le.ScanSettings.Builder()
                     .setScanMode(scanPower)
@@ -171,7 +173,7 @@ class ScannerImpl @Inject constructor(
                         if (reportDelayEnabled)
                             setReportDelay(reportDelay)
                     }.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
-                    .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
+                    .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
                     .setCallbackType(android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                     .build()
             if (legacy) {
@@ -187,7 +189,7 @@ class ScannerImpl @Inject constructor(
                             if (reportDelayEnabled)
                                 setReportDelay(reportDelay)
                         }.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
-                        .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
+                        .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT)
                         .setCallbackType(android.bluetooth.le.ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
                         .build()
 
@@ -249,7 +251,7 @@ class ScannerImpl @Inject constructor(
         updatePrefScan(false)
     }
 
-    override fun insertResult(scanResult: ScanResult): Single<Pair<Long, ScanResult>> {
+    override fun insertResult(scanResult: ScanResult, legacy: Boolean): Single<Pair<Long, ScanResult>> {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val phy = prefs.getString(PREF_PRIMARY_PHY, null)
         val phyVal = service.phyToVal(phy)
@@ -268,7 +270,8 @@ class ScannerImpl @Inject constructor(
                         }.toSingleDefault(scanResult)
                     }
             }.flatMap { result ->
-                database.insertScanResult(result).doOnError { e -> Log.v(NAME, "insert error $e") }
+                result.legacy = legacy
+                database.insertScanResult(result).doOnError { e -> Timber.v("insert error $e") }
                     .subscribeOn(dbScheduler)
 
             }.map { r -> Pair(r, scanResult) }
@@ -487,7 +490,7 @@ class ScannerImpl @Inject constructor(
 
     override fun startScan(legacy: Boolean): Observable<ScanResult> {
         return scanInternal(legacy).flatMapSingle { r ->
-            insertResult(r).ignoreElement().toSingleDefault(r)
+            insertResult(r, legacy).ignoreElement().toSingleDefault(r)
         }
 
     }

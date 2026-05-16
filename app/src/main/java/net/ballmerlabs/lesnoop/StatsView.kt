@@ -32,11 +32,12 @@ import me.bytebeats.views.charts.pie.PieChartData
 import timber.log.Timber
 
 @Composable
-fun DbChartView(padding: PaddingValues) {
+fun DbChartView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
     val model: ScanViewModel = hiltViewModel()
     val ouis by model.getTopOuis(8).subscribeAsState(mapOf())
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val toastText = stringResource(R.string.invalid_file_path)
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/x-sqlite3")
     ){ uri: Uri? ->
@@ -51,7 +52,7 @@ fun DbChartView(padding: PaddingValues) {
                 }
             } else {
                 withContext(Dispatchers.Main)  {
-                    Toast.makeText(context, context.getText(R.string.invalid_file_path), Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -59,17 +60,19 @@ fun DbChartView(padding: PaddingValues) {
 
     val configuration = LocalConfiguration.current
 
-    Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+    Column(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             ScanResultsCount(model = model)
-            Button(onClick = {
-                launcher.launch("output.sqlite")
-            }) {
-                Text(text = stringResource(id = R.string.export))
+            if (showButtons) {
+                Button(onClick = {
+                    launcher.launch("output.sqlite")
+                }) {
+                    Text(text = stringResource(id = R.string.export))
+                }
             }
         }
         when (configuration.orientation) {
@@ -82,7 +85,7 @@ fun DbChartView(padding: PaddingValues) {
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Legend(modifier = Modifier.fillMaxWidth(0.6F), model = model, ouis = ouis)
-                    MetricsView()
+                    MetricsView(showButtons = showButtons)
                 }
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     OuiPieChart(
@@ -125,7 +128,7 @@ fun LocationView(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun MetricsView(modifier: Modifier = Modifier) {
+fun MetricsView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
     val viewModel: ScanViewModel = hiltViewModel()
     val metrics by viewModel.scanResultDao.observeTopMetrics().subscribeAsState(null)
     val scope = rememberCoroutineScope()
@@ -141,19 +144,20 @@ fun MetricsView(modifier: Modifier = Modifier) {
         }
 
         LocationView()
+        if (showButtons) {
+            Button(onClick = {
+                scope.launch(Dispatchers.IO) {
+                    viewModel.scanResultDao.newMetricsSession().await()
+                }
+            }) { Text("New session") }
 
-        Button(onClick = {
-            scope.launch(Dispatchers.IO) {
-                 viewModel.scanResultDao.newMetricsSession().await()
+            Button(onClick = {
+                scope.launch(Dispatchers.IO) {
+                    viewModel.locationTagger.startLocationPoll()
+                }
+            }) {
+                Text("Acquire gps")
             }
-        }) { Text("New session") }
-
-        Button(onClick = {
-            scope.launch(Dispatchers.IO) {
-                viewModel.locationTagger.startLocationPoll()
-            }
-        }) {
-            Text("Acquire gps")
         }
     }
 }

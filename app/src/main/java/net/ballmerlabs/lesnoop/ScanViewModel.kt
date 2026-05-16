@@ -32,6 +32,7 @@ class ScanViewModel @Inject constructor(
 ) : ViewModel() {
     val currentScans = mutableStateListOf<ScanResult>()
     val topText = mutableStateOf("")
+    val keyGuard = mutableStateOf(false)
     var scanInProgress = mutableStateOf<Disposable?>(null)
 
     private val colorList = listOf(

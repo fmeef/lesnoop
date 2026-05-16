@@ -41,22 +41,22 @@ class BroadcastReceiverState @Inject constructor(
         for (result in scanResult.distinctBy { v -> v.bleDevice.macAddress }) {
 
             if (connected.putIfAbsent(result.bleDevice.macAddress, true) == null)
-                executeBatch(result)
+                executeBatch(result, legacy)
         }
     }
 
-    fun insertWithoutConnecting(result: ScanResult) {
+    fun insertWithoutConnecting(result: ScanResult, legacy: Boolean) {
         Timber.tag("debug").v("insertWithoutConnecting ${result.bleDevice.macAddress}")
         insertQueue.accept(
             result.bleDevice,
-            scanner.createScanner().insertResult(result)
+            scanner.createScanner().insertResult(result, legacy)
                 .doFinally { batch.remove(result.bleDevice.macAddress) }
                 .ignoreElement())
     }
 
-    fun executeBatch(result: ScanResult) {
+    fun executeBatch(result: ScanResult, legacy: Boolean) {
         val s = scanner.createScanner()
-        val f = s.insertResult(result)
+        val f = s.insertResult(result, legacy)
             .doOnSuccess { Timber.v( "inserted result?") }
             .flatMapMaybe { scanResult ->
                 s.discoverServices(
@@ -87,16 +87,16 @@ class BroadcastReceiverState @Inject constructor(
             Timber.v( "device isConnectable ${result.isConnectable} ${result.callbackType}")
             return when (result.isConnectable) {
                 IsConnectable.CONNECTABLE -> {
-                    insertWithoutConnecting(result)
+                    insertWithoutConnecting(result, legacy)
                     queue.accept(
                         result.bleDevice,
-                        s.insertResult(result).ignoreElement().andThen(f)
+                        s.insertResult(result, legacy).ignoreElement().andThen(f)
                     )
                 }
 
-                IsConnectable.NOT_CONNECTABLE -> insertWithoutConnecting(result)
-                IsConnectable.LEGACY_UNKNOWN -> insertWithoutConnecting(result)
-                else -> insertWithoutConnecting(result)
+                IsConnectable.NOT_CONNECTABLE -> insertWithoutConnecting(result, legacy)
+                IsConnectable.LEGACY_UNKNOWN -> insertWithoutConnecting(result, legacy)
+                else -> insertWithoutConnecting(result, legacy)
             }
         }
     }

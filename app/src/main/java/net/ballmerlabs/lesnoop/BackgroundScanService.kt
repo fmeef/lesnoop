@@ -37,6 +37,8 @@ fun newPendingIntent(context: Context, c: Class<*>): PendingIntent =
             LegacyBroadcastReceiver.SCAN_REQUEST_CODE
         else
             NonLegacyBroadcastReceiver.SCAN_REQUEST_CODE
+
+        Timber.e("newPendingIntent code=$code")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             PendingIntent.getBroadcast(
                 context,
@@ -99,7 +101,9 @@ class BackgroundScanService : Service() {
                     .setTicker("fmef am tire").build()
             startForeground(
                 99, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
             )
 
         }

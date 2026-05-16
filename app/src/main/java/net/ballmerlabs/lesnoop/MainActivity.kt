@@ -3,19 +3,25 @@ package net.ballmerlabs.lesnoop
 import android.Manifest
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.health.connect.datatypes.units.Power
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +67,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -75,6 +82,7 @@ import androidx.core.content.edit
 import androidx.core.text.isDigitsOnly
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.rxjava3.rxPreferencesDataStore
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
@@ -111,7 +119,7 @@ data class PermissionText(
 )
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     @Inject
     lateinit var scannerFactory: ScannerFactory
 
@@ -129,6 +137,7 @@ class MainActivity : ComponentActivity() {
             },
             { e -> Timber.e("failed to refresh oui $e") })
         disposable.add(disp)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContent {
             LeSnoopTheme {
                 Body {
@@ -229,10 +238,61 @@ fun ScopePermissions(
     }
 }
 
+
 @Composable
-fun ScanDialog(modifier: Modifier = Modifier, s: () -> ScannerFactory) {
+fun KeyGuard(s: () -> ScannerFactory, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val activity = LocalActivity.current as FragmentActivity
+    Scaffold(content = { padding ->
+        Column(modifier = Modifier.padding(padding)) {
+            Button(onClick = {
+                val prompt = BiometricPrompt(activity, context.mainExecutor, object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        onDismiss()
+                    }
+                })
+
+                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("Login to resume")
+                    .setNegativeButtonText("Use account password")
+                    .build()
+
+                prompt.authenticate(promptInfo)
+
+            }) {
+                Text("Unlock")
+            }
+            StartStopButtons(s)
+            MetricsView()
+
+        }
+    })
+}
+
+@Composable
+fun StartStopButtons(s: () -> ScannerFactory) {
     val service by remember { derivedStateOf(s) }
     val started: Boolean? by service.serviceState().observeAsState()
+    Row {
+        Button(
+            onClick = {
+                service.startScanToDb()
+            }, enabled = !(started ?: false)
+        ) {
+            Text(text = stringResource(id = R.string.start_scan))
+        }
+        Button(
+            onClick = { service.stopScan() }, enabled = started ?: false
+        ) {
+            Text(text = stringResource(id = R.string.stop_scan))
+        }
+    }
+}
+
+@Composable
+fun ScanDialog(modifier: Modifier = Modifier, s: () -> ScannerFactory, onLock: () -> Unit) {
+    val activity = LocalActivity.current
+    val context = LocalContext.current
     Surface(
         modifier = modifier
             .background(
@@ -240,18 +300,10 @@ fun ScanDialog(modifier: Modifier = Modifier, s: () -> ScannerFactory) {
             )
             .padding(8.dp)
     ) {
-        Row {
-            Button(
-                onClick = {
-                    service.startScanToDb()
-                }, enabled = !(started ?: false)
-            ) {
-                Text(text = stringResource(id = R.string.start_scan))
-            }
-            Button(
-                onClick = { service.stopScan() }, enabled = started ?: false
-            ) {
-                Text(text = stringResource(id = R.string.stop_scan))
+        Column {
+            StartStopButtons(s)
+            Button(onClick = { activity?.startActivity(Intent(activity, KeyGuard::class.java)) }) {
+                Text(text = "Lock screen")
             }
         }
     }
@@ -670,42 +722,50 @@ fun Body(service: () -> ScannerFactory) {
     val model: ScanViewModel = hiltViewModel()
     val context = LocalContext.current
     val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
-
-    Scaffold(content = { padding ->
-        NavHost(navController = navController, startDestination = NAV_PREFS) {
-            composable(NAV_PREFS) {
-                model.topText.value = stringResource(id = R.string.settings)
-                val scrollState = ScrollState(0)
-                ScopePermissions(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(padding)
-                        .verticalScroll(scrollState)
-                ) {
-                    //  DeviceList(padding, model)
-                    ScanPage(service,  prefs)
+    var lock by remember { mutableStateOf(false) }
+    if (lock) {
+        KeyGuard(service) {
+            lock = false
+        }
+    } else {
+        Scaffold(content = { padding ->
+            NavHost(navController = navController, startDestination = NAV_PREFS) {
+                composable(NAV_PREFS) {
+                    model.topText.value = stringResource(id = R.string.settings)
+                    val scrollState = ScrollState(0)
+                    ScopePermissions(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(padding)
+                            .verticalScroll(scrollState)
+                    ) {
+                        //  DeviceList(padding, model)
+                        ScanPage(service, prefs)
+                    }
                 }
+                composable(NAV_DB) {
+                    model.topText.value = stringResource(id = R.string.database)
+                    DbChartView(modifier = Modifier.fillMaxSize().padding(padding))
+                }
+                composable(NAV_SCAN) {
+                    model.topText.value = stringResource(id = R.string.nearby)
+                    DeviceList(padding = padding)
+                }
+                dialog(NAV_DIALOG) { ScanDialog(Modifier, service) {
+                    lock = true
+                } }
             }
-            composable(NAV_DB) {
-                model.topText.value = stringResource(id = R.string.database)
-                DbChartView(padding)
-            }
-            composable(NAV_SCAN) {
-                model.topText.value = stringResource(id = R.string.nearby)
-                DeviceList(padding = padding)
-            }
-            dialog(NAV_DIALOG) { ScanDialog(Modifier, service) }
-        }
-    }, bottomBar = { BottomBar(navController) }, topBar = { TopBar() }, floatingActionButton = {
-        FloatingActionButton(onClick = {
-            navController.navigate(NAV_DIALOG)
-        }) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_baseline_perm_scan_wifi_24),
-                contentDescription = "Start scan"
-            )
+        }, bottomBar = { BottomBar(navController) }, topBar = { TopBar() }, floatingActionButton = {
+            FloatingActionButton(onClick = {
+                navController.navigate(NAV_DIALOG)
+            }) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_baseline_perm_scan_wifi_24),
+                    contentDescription = "Start scan"
+                )
 
-        }
-    })
+            }
+        })
+    }
 }
 

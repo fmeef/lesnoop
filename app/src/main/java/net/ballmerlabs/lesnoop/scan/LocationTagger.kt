@@ -10,6 +10,8 @@ import android.location.LocationRequest
 import android.os.Build
 import android.os.CancellationSignal
 import android.provider.Settings
+import android.view.Display
+import android.view.WindowManager
 import androidx.core.app.ActivityCompat
 import com.polidea.rxandroidble3.scan.ScanResult
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,9 +39,10 @@ fun Context.checkAirplaneMode(): Boolean {
 @Singleton
 class LocationTagger @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val display: Display,
     private val locationService: LocationManager,
     @param:Named(Module.TIMEOUT_SCHEDULER) val timeoutScheduler: Scheduler,
-    @param:Named(Module.EXECUTOR_COMPUTE) private val executor: Executor
+    @param:Named(Module.EXECUTOR_COMPUTE) private val executor: Executor,
 ) {
     private val locationDisposable = AtomicReference<Disposable?>()
     val locationSubject = BehaviorSubject.create<String>()
@@ -116,7 +119,7 @@ class LocationTagger @Inject constructor(
                             m.onComplete()
                         }
                     }
-                }else {
+                } else {
                     locationService.requestSingleUpdate(provider, { l ->
                         m.onSuccess(l)
                     }, null)
@@ -139,11 +142,14 @@ class LocationTagger @Inject constructor(
     fun tagLocation(scanResult: ScanResult, phyVal: Int?): Single<DbScanResult> {
         return Single.defer {
             val loc = location.get()
-            if (loc != null) {
-                Single.just(DbScanResult(scanResult, loc, phyVal, timestamp = Date().time))
-            } else {
-                Single.just(DbScanResult(scanResult,  null, phyVal,  timestamp = Date().time))
-            }
+
+            Single.just(DbScanResult(
+                scanResult,
+                loc,
+                phyVal,
+                timestamp = Date().time,
+                display = display.state)
+            )
         }
     }
 }

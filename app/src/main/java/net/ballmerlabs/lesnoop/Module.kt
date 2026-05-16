@@ -3,9 +3,13 @@ package net.ballmerlabs.lesnoop
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.hardware.display.DisplayManager
 import android.location.LocationManager
 import android.os.Handler
 import android.os.PowerManager
+import android.view.Display
+import android.view.Display.DEFAULT_DISPLAY
+import androidx.compose.material3.DisplayMode
 import androidx.preference.PreferenceManager
 import androidx.room.Room
 import com.polidea.rxandroidble3.RxBleClient
@@ -41,6 +45,7 @@ abstract class Module {
         const val COMPUTE_SCHEDULER = "compute"
         const val CONNECT_SCHEDULER = "connect"
         const val TIMEOUT_SCHEDULER = "timeout"
+        const val DISPLAY_CONTEXT = "display-context"
 
         @Provides
         @Singleton
@@ -58,6 +63,22 @@ abstract class Module {
             return RxJavaPlugins.createSingleScheduler { r ->
                 Thread(r)
             }
+        }
+
+
+        @Provides
+        @Named(DISPLAY_CONTEXT)
+        @Singleton
+        fun providesDisplayContext(display: Display, @ApplicationContext context: Context): Context {
+            return context.createDisplayContext(display)
+        }
+
+
+        @Provides
+        @Singleton
+        fun providesDefaultDisplay(@ApplicationContext context: Context): Display {
+            val manager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            return manager.getDisplay(DEFAULT_DISPLAY)
         }
 
         @Provides

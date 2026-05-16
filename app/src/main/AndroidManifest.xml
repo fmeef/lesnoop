@@ -6,12 +6,15 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
 
     <application
         android:name=".MainApp"
@@ -23,11 +26,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LeSnoop"
         tools:targetApi="31">
+        <activity
+            android:name=".KeyGuard"
+            android:exported="false"
+            android:label="@string/title_activity_key_guard"
+            android:theme="@style/Theme.LeSnoop" />
+
         <service
             android:name=".BackgroundScanService"
             android:enabled="true"
-            android:foregroundServiceType="location|connectedDevice"
-            android:exported="false"/>
+            android:exported="false"
+            android:foregroundServiceType="location|connectedDevice|systemExempted" />
 
         <receiver android:name=".LegacyBroadcastReceiver" />
         <receiver android:name=".NonLegacyBroadcastReceiver" />

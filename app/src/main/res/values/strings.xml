@@ -30,5 +30,6 @@
     <string name="scan_mode">Scan mode</string>
     <string name="report_delay_enabled">Report delay enabled</string>
     <string name="report_delay">Report delay value</string>
+    <string name="title_activity_key_guard">KeyGuard</string>
 
 </resources>
