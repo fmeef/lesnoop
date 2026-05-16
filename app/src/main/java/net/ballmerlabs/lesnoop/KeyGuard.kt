@@ -1,5 +1,7 @@
 package net.ballmerlabs.lesnoop
 
+import android.app.KeyguardManager
+import android.content.Context
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -26,6 +28,9 @@ class KeyGuard : ComponentActivity() {
                     WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
         )
         setShowWhenLocked(true)
+        setTurnScreenOn(true)
+        val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        keyguardManager.requestDismissKeyguard(this, null)
         enableEdgeToEdge()
         setContent {
             LeSnoopTheme {
