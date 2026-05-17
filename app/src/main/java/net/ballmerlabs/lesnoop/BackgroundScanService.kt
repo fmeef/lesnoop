@@ -112,8 +112,7 @@ class BackgroundScanService : Service() {
             startForeground(
                 99, notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE or
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
             )
 
         }
