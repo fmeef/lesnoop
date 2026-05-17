@@ -5,11 +5,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.hardware.display.DisplayManager
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Handler
 import android.os.PowerManager
 import android.view.Display
 import android.view.Display.DEFAULT_DISPLAY
 import androidx.compose.material3.DisplayMode
+import androidx.core.net.toUri
 import androidx.preference.PreferenceManager
 import androidx.room.Room
 import com.polidea.rxandroidble3.RxBleClient
@@ -68,8 +70,8 @@ abstract class Module {
 
         @Provides
         @Singleton
-        fun providesScreenOffReceiver(): ScreenOffReceiver {
-            return ScreenOffReceiver()
+        fun provideSoundUri(@ApplicationContext context: Context): Uri {
+            return ("android.resource://" + context.packageName + "/" + R.raw.red_alert).toUri()
         }
 
 

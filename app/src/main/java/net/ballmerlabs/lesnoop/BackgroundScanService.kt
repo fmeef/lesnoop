@@ -94,6 +94,9 @@ class BackgroundScanService : Service() {
     @Inject
     lateinit var screenOffReceiver: ScreenOffReceiver
 
+    @Inject
+    lateinit var soundUri: Uri
+
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -102,8 +105,6 @@ class BackgroundScanService : Service() {
             ?: ScannerFactory.SCAN_MODE_BATCH
         if (intent?.action != ACTION_RELOAD) {
             wakeLockProvider.hold()
-            val soundUri =
-                ("android.resource://" + packageName + "/" + R.raw.red_alert).toUri()
             val notification =
                 NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_FOREGROUND)
                     .setContentTitle("LeSnoop")
@@ -202,8 +203,7 @@ class BackgroundScanService : Service() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
         manager.deleteNotificationChannel(NOTIFICATION_CHANNEL_FOREGROUND)
-        val soundUri =
-            ("android.resource://" + packageName + "/" + R.raw.red_alert).toUri()
+
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_FOREGROUND, "scan-notif", NotificationManager.IMPORTANCE_HIGH
         )
