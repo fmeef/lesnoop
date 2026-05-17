@@ -139,29 +139,10 @@ class BackgroundScanService : Service() {
             if (scanMode == ScannerFactory.SCAN_MODE_FOREGROUND) {
                 clientScanner.createScanner().scanForeground(legacy)
             } else {
-//                val legacySettings =
-//                    ScanSettings.Builder()
-//                        .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
-//                        .setPhy(phy)
-//                        .setLegacy(false)
-//                        .apply {
-//                            if (reportDelayEnabled)
-//                                setReportDelay(reportDelay)
-//                        }
-//                        .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES).build()
-
-//                scanner.startScan(
-//                    listOf(ScanFilter.Builder().build()),
-//                    legacySettings,
-//                    legacyIntent
-//                )
-
                 running.postValue(true)
                 clientScanner.createScanner().setScanRunning(true)
 
                 clientScanner.createScanner().unpauseScan()
-
-
             }
 
 

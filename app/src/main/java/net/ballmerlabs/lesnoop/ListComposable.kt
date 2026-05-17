@@ -70,14 +70,13 @@ fun DeviceList(padding: PaddingValues) {
             if (model.currentScans.isNotEmpty()) {
                 for (result in model.currentScans) {
                     item {
-                        Card(
+                        ScanResultView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 5.dp, bottom = 5.dp)
-                                .height(60.dp)
-                        ) {
-                            ScanResultView(scanResult = result)
-                        }
+                                .height(60.dp),
+                            scanResult = result
+                        )
                     }
                 }
             } else {
@@ -92,24 +91,29 @@ fun DeviceList(padding: PaddingValues) {
 }
 
 @Composable
-fun ScanResultView(scanResult: ScanResult) {
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(start = 8.dp, end = 8.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.SpaceBetween,
+fun ScanResultView(modifier: Modifier = Modifier, scanResult: ScanResult) {
+    Card(
+        modifier = modifier
     ) {
-        Column(
-            modifier = Modifier.fillMaxHeight(),
-            verticalArrangement = Arrangement.Top
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 8.dp, end = 8.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(
-                text = scanResult.bleDevice.name ?: "N/A",
-                style = MaterialTheme.typography.labelLarge
-            )
-            Text(text = scanResult.bleDevice.macAddress)
+            Column(
+                modifier = Modifier.fillMaxHeight(),
+                verticalArrangement = Arrangement.Top
+            ) {
+                Text(
+                    text = scanResult.bleDevice.name ?: "N/A",
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Text(text = scanResult.bleDevice.macAddress)
+            }
+            Text(text = "${scanResult.rssi} dBm")
         }
-        Text(text = "${scanResult.rssi} dBm")
     }
 }
