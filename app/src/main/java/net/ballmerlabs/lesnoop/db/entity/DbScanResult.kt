@@ -23,7 +23,8 @@ data class DbScanResult(
     val timestamp: Long? = null,
     @Embedded val location: DbLocation? = null,
     val display: Int? = null,
-    var legacy: Boolean? = null
+    var legacy: Boolean? = null,
+    var tag: String? = null
 
 ) {
     constructor(

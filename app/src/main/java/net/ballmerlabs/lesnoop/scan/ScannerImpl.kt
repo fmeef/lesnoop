@@ -271,6 +271,10 @@ class ScannerImpl @Inject constructor(
                     }
             }.flatMap { result ->
                 result.legacy = legacy
+                val tag = prefs.getString(ScannerFactory.PREF_CURRENT_TAG, "")?:""
+                if (tag.trim().isNotEmpty()) {
+                    result.tag = tag
+                }
                 database.insertScanResult(result).doOnError { e -> Timber.v("insert error $e") }
                     .subscribeOn(dbScheduler)
 

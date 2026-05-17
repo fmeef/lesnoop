@@ -38,7 +38,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Label
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -52,6 +54,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.IntState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
@@ -290,18 +293,31 @@ fun StartStopButtons(s: () -> ScannerFactory) {
 }
 
 @Composable
-fun ScanDialog(modifier: Modifier = Modifier, s: () -> ScannerFactory, onLock: () -> Unit) {
+fun ScanDialog(modifier: Modifier = Modifier, prefs: SharedPreferences, s: () -> ScannerFactory, onLock: () -> Unit) {
     val activity = LocalActivity.current
-    val context = LocalContext.current
+
+    val tagState = rememberTextFieldState(prefs.getString(ScannerFactory.PREF_CURRENT_TAG, "")?:"")
+
     Surface(
         modifier = modifier
             .background(
                 color = MaterialTheme.colorScheme.background, shape = RoundedCornerShape(8.dp)
             )
-            .padding(8.dp)
+            .padding(16.dp)
     ) {
         Column {
+            Text("Run background scan")
             StartStopButtons(s)
+            OutlinedTextField(
+                state = tagState,
+                label = { Text("Label") },
+                outputTransformation = {
+                    prefs.edit {
+                        putString(ScannerFactory.PREF_CURRENT_TAG, tagState.text.toString())
+                        apply()
+                    }
+                }
+            )
             Button(onClick = { activity?.startActivity(Intent(activity, KeyGuard::class.java)) }) {
                 Text(text = "Lock screen")
             }
@@ -751,7 +767,7 @@ fun Body(service: () -> ScannerFactory) {
                     model.topText.value = stringResource(id = R.string.nearby)
                     DeviceList(padding = padding)
                 }
-                dialog(NAV_DIALOG) { ScanDialog(Modifier, service) {
+                dialog(NAV_DIALOG) { ScanDialog(Modifier,  prefs, service) {
                     lock = true
                 } }
             }
