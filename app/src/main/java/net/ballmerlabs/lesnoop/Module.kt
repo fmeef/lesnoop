@@ -26,6 +26,7 @@ import io.reactivex.rxjava3.plugins.RxJavaPlugins
 import net.ballmerlabs.lesnoop.db.MIGATION_2_3
 import net.ballmerlabs.lesnoop.scan.RxBlessedCentralCallback
 import net.ballmerlabs.lesnoop.scan.RxBlessedPeripheralSubcomponent
+import net.ballmerlabs.lesnoop.scan.ScreenOffReceiver
 import java.io.File
 import java.util.concurrent.Executor
 import javax.inject.Named
@@ -63,6 +64,12 @@ abstract class Module {
             return RxJavaPlugins.createSingleScheduler { r ->
                 Thread(r)
             }
+        }
+
+        @Provides
+        @Singleton
+        fun providesScreenOffReceiver(): ScreenOffReceiver {
+            return ScreenOffReceiver()
         }
 
 

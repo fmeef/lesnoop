@@ -6,11 +6,15 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.bluetooth.BluetoothManager
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -28,8 +32,10 @@ import net.ballmerlabs.lesnoop.ScannerFactory.Companion.PREF_LEGACY
 import net.ballmerlabs.lesnoop.scan.ConnectQueue
 import net.ballmerlabs.lesnoop.scan.InsertQueue
 import net.ballmerlabs.lesnoop.scan.LocationTagger
+import net.ballmerlabs.lesnoop.scan.ScreenOffReceiver
 import timber.log.Timber
 import javax.inject.Inject
+import androidx.core.net.toUri
 
 fun newPendingIntent(context: Context, c: Class<*>): PendingIntent =
     Intent(context, c).let {
@@ -85,6 +91,9 @@ class BackgroundScanService : Service() {
     @Inject
     lateinit var wakeLockProvider: WakeLockProvider
 
+    @Inject
+    lateinit var screenOffReceiver: ScreenOffReceiver
+
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -93,11 +102,14 @@ class BackgroundScanService : Service() {
             ?: ScannerFactory.SCAN_MODE_BATCH
         if (intent?.action != ACTION_RELOAD) {
             wakeLockProvider.hold()
+            val soundUri =
+                ("android.resource://" + packageName + "/" + R.raw.red_alert).toUri()
             val notification =
                 NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_FOREGROUND)
                     .setContentTitle("LeSnoop")
                     .setContentText("Scanning...\n(this uses location permission, but not actual geolocation)")
                     .setSmallIcon(R.drawable.ic_launcher_background)
+                    .setSound(soundUri)
                     .setTicker("fmef am tire").build()
             startForeground(
                 99, notification,
@@ -107,6 +119,9 @@ class BackgroundScanService : Service() {
             )
 
         }
+
+
+        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
         val scanner = bluetoothManager.adapter?.bluetoothLeScanner
 
@@ -161,9 +176,10 @@ class BackgroundScanService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.w("debug", "service stopped")
+        Timber.w("service stopped")
         wakeLockProvider.releaseAll()
         running.postValue(false)
+        unregisterReceiver(screenOffReceiver)
         val pendingIntent = newPendingIntent(this, NonLegacyBroadcastReceiver::class.java)
         val legacyIntent = newPendingIntent(this, LegacyBroadcastReceiver::class.java)
         clientScanner.createScanner().setScanRunning(false)
@@ -184,10 +200,22 @@ class BackgroundScanService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.deleteNotificationChannel(NOTIFICATION_CHANNEL_FOREGROUND)
+        val soundUri =
+            ("android.resource://" + packageName + "/" + R.raw.red_alert).toUri()
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_FOREGROUND, "scan-notif", NotificationManager.IMPORTANCE_HIGH
         )
-        val manager = getSystemService(NotificationManager::class.java)
+
+        val audioAttributes = AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .build()
+
+        channel.setSound(soundUri, audioAttributes)
+
+
         manager.createNotificationChannel(channel)
     }
 
@@ -196,8 +224,8 @@ class BackgroundScanService : Service() {
     }
 
     companion object {
-        private const val NOTIFICATION_CHANNEL_FOREGROUND =
-            "net.ballmerlabs.lesnoop.foreground-scan"
+        const val NOTIFICATION_CHANNEL_FOREGROUND =
+            "net.ballmerlabs.lesnoop.foreground-scan-sound"
         const val ACTION_RELOAD = "reload"
     }
 
