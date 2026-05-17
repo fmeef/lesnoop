@@ -92,9 +92,6 @@ class BackgroundScanService : Service() {
     lateinit var wakeLockProvider: WakeLockProvider
 
     @Inject
-    lateinit var screenOffReceiver: ScreenOffReceiver
-
-    @Inject
     lateinit var soundUri: Uri
 
 
@@ -122,7 +119,6 @@ class BackgroundScanService : Service() {
         }
 
 
-        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
 
         val scanner = bluetoothManager.adapter?.bluetoothLeScanner
 
@@ -180,7 +176,6 @@ class BackgroundScanService : Service() {
         Timber.w("service stopped")
         wakeLockProvider.releaseAll()
         running.postValue(false)
-        unregisterReceiver(screenOffReceiver)
         val pendingIntent = newPendingIntent(this, NonLegacyBroadcastReceiver::class.java)
         val legacyIntent = newPendingIntent(this, LegacyBroadcastReceiver::class.java)
         clientScanner.createScanner().setScanRunning(false)
