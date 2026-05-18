@@ -19,13 +19,10 @@ class ConnectQueue @Inject constructor(
     val timeoutScheduler: Scheduler
 )  {
 
-    private var shutdown = false
     private val inflight = ConcurrentHashMap<String, Disposable>()
 
 
     fun accept(device: RxBleDevice, value: Completable) {
-        if(shutdown)
-            return
         val max = prefs.getInt(ScannerFactory.PREF_MAX_CONNECTION, 7)
         if (inflight.size <= max) {
             inflight.computeIfAbsent(device.macAddress) { key ->
@@ -41,7 +38,6 @@ class ConnectQueue @Inject constructor(
     }
 
     fun shutdown() {
-        shutdown = true
         inflight.values.forEach { v ->
             v.dispose()
         }

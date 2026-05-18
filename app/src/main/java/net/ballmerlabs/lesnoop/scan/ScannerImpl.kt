@@ -397,8 +397,7 @@ class ScannerImpl @Inject constructor(
     override fun discoverServices(scanResult: RxBleDevice, dbid: Long?): Single<Boolean> {
         return if (prefs.getBoolean(ScannerFactory.PREF_CONNECT, false)) {
             scanResult.establishConnection(
-                false,
-                Timeout(30, TimeUnit.SECONDS)
+                false
             ).timeout(35, TimeUnit.SECONDS, timeoutScheduler)
                 .doOnDispose { Timber.tag("debug").e("connection disposed") }
                 .doOnSubscribe {
