@@ -97,6 +97,7 @@ class ScannerImpl @Inject constructor(
     private lateinit var mService: BackgroundScanService
     private val foregroundDisp = AtomicReference<Disposable?>(null)
     private var mBound = MutableLiveData<Boolean>()
+    private var scanLocked = false
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, service: IBinder) {
             // We've bound to LocalService, cast the IBinder and get LocalService instance.
@@ -135,7 +136,13 @@ class ScannerImpl @Inject constructor(
         scanner?.stopScan(legacyIntent)
     }
 
+    override fun lockScan(lock: Boolean) {
+        scanLocked = lock
+    }
+
     override fun unpauseScan() {
+        if (scanLocked)
+            return
         if (scanRunning.get()) {
             val pendingIntent =
                 newPendingIntent(applicationContext, NonLegacyBroadcastReceiver::class.java)

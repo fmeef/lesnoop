@@ -40,6 +40,7 @@ class ScannerFactory @Inject constructor(
     fun destroyScanner() {
         val s = currentScan.getAndSet(null)
         if (s != null) {
+            s.scanner().lockScan(true)
             val scanner = s.scanner()
             scanner.stopScanBackground()
             scanner.dispose()

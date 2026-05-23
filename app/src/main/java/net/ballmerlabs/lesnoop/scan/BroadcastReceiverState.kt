@@ -123,10 +123,15 @@ class BroadcastReceiverState @Inject constructor(
                             .doOnSubscribe { batch.clear() }
                     }
 
-                    Completable.timer(delay, timeUnit, timeoutScheduler).andThen(connect)
+                    Completable.timer(delay, timeUnit, timeoutScheduler)
+                        .andThen(Completable.fromAction {
+                            scanner.createScanner().pauseScan()
+                        })
+                        .andThen(connect)
                         .flatMapCompletable { v -> v }
                         .doFinally {
                             connectDisp.set(null)
+                            scanner.createScanner().unpauseScan()
                         }
                         .subscribe(
                             {

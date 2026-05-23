@@ -32,10 +32,8 @@ import net.ballmerlabs.lesnoop.ScannerFactory.Companion.PREF_LEGACY
 import net.ballmerlabs.lesnoop.scan.ConnectQueue
 import net.ballmerlabs.lesnoop.scan.InsertQueue
 import net.ballmerlabs.lesnoop.scan.LocationTagger
-import net.ballmerlabs.lesnoop.scan.ScreenOffReceiver
 import timber.log.Timber
 import javax.inject.Inject
-import androidx.core.net.toUri
 
 fun newPendingIntent(context: Context, c: Class<*>): PendingIntent =
     Intent(context, c).let {
@@ -120,7 +118,8 @@ class BackgroundScanService : Service() {
 
 
         val scanner = bluetoothManager.adapter?.bluetoothLeScanner
-
+        val client = clientScanner.createScanner()
+        client.lockScan(false)
         val legacy = prefs.getBoolean(PREF_LEGACY, false)
         Timber.w("starting pendingIntent scan with phy legacy=$legacy")
         locationTagger.startLocationPoll()
@@ -136,12 +135,12 @@ class BackgroundScanService : Service() {
             ) == PackageManager.PERMISSION_GRANTED && scanner != null
         ) {
             if (scanMode == ScannerFactory.SCAN_MODE_FOREGROUND) {
-                clientScanner.createScanner().scanForeground(legacy)
+                client.scanForeground(legacy)
             } else {
                 running.postValue(true)
-                clientScanner.createScanner().setScanRunning(true)
+                client.setScanRunning(true)
 
-                clientScanner.createScanner().unpauseScan()
+                client.unpauseScan()
             }
 
 
@@ -156,12 +155,14 @@ class BackgroundScanService : Service() {
         Timber.w("service stopped")
         wakeLockProvider.releaseAll()
         running.postValue(false)
+        val scanner = clientScanner.createScanner()
         val pendingIntent = newPendingIntent(this, NonLegacyBroadcastReceiver::class.java)
         val legacyIntent = newPendingIntent(this, LegacyBroadcastReceiver::class.java)
-        clientScanner.createScanner().setScanRunning(false)
+        scanner.setScanRunning(false)
+        scanner.lockScan(true)
         client.backgroundScanner.stopBackgroundBleScan(pendingIntent)
         client.backgroundScanner.stopBackgroundBleScan(legacyIntent)
-        clientScanner.createScanner().stopScanForeground()
+        scanner.stopScanForeground()
         insertQueue.stopProcess()
         locationTagger.stopLocationPoll()
         queue.shutdown()
