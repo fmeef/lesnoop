@@ -20,7 +20,6 @@ import com.polidea.rxandroidble3.RxBleClient
 import com.polidea.rxandroidble3.RxBleConnection
 import com.polidea.rxandroidble3.RxBleDevice
 import com.polidea.rxandroidble3.RxBlePhyOption
-import com.polidea.rxandroidble3.Timeout
 import com.polidea.rxandroidble3.exceptions.BleAlreadyConnectedException
 import com.polidea.rxandroidble3.exceptions.BleDisconnectedException
 import com.polidea.rxandroidble3.exceptions.BleScanException
@@ -56,7 +55,6 @@ import net.ballmerlabs.lesnoop.rxPrefs
 import timber.log.Timber
 import java.util.Date
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -91,7 +89,8 @@ class ScannerImpl @Inject constructor(
     @param:ApplicationContext val applicationContext: Context,
     val bluetoothManager: BluetoothManager,
     val finalizer: ScanSubcomponentFinalizer,
-    val prefs: SharedPreferences
+    val prefs: SharedPreferences,
+    val dao: ScanResultDao
 ) : Scanner {
     private val disp = CompositeDisposable()
     private val scanRunning = AtomicBoolean(false)
@@ -391,6 +390,32 @@ class ScannerImpl @Inject constructor(
             .retryWhen { e -> handleUndocumentedScanThrottling<ScanResult>(e) }
             .doOnNext { r -> Timber.tag(NAME).v("scan result $r") }
             .doOnError { e -> Timber.tag(NAME).e("scan error $e") }
+    }
+
+    override fun connectWithDbCache(result: ScanResult, legacy: Boolean): Completable {
+        return insertResult(result, legacy)
+            .doOnSuccess { Timber.v("inserted result?") }
+            .flatMapCompletable { scanResult ->
+                val mac = scanResult.second.bleDevice.macAddress
+                dao.attemptConnect(mac)
+                    .flatMapCompletable { connected ->
+                        if (!connected) {
+                            discoverServices(
+                                scanResult.second.bleDevice,
+                                scanResult.first
+                            ).andThen(dao.setConnected(mac))
+                        } else {
+                            Timber.v("skipping mac $mac, already connected")
+                            Completable.complete()
+                        }
+                    }
+            }.doOnComplete { Timber.w("connect complete") }
+            .doFinally {
+//                batch.remove(result.bleDevice.macAddress)
+  //              connected.remove(result.bleDevice.macAddress)
+                Timber.v("removing device ${result.bleDevice.macAddress}")
+            }
+
     }
 
 

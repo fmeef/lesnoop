@@ -9,7 +9,6 @@ import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.disposables.Disposable
 import net.ballmerlabs.lesnoop.Module
 import net.ballmerlabs.lesnoop.ScannerFactory
-import net.ballmerlabs.lesnoop.db.ScanResultDao
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -25,11 +24,11 @@ class BroadcastReceiverState @Inject constructor(
     val prefs: SharedPreferences,
     val queue: ConnectQueue,
     val insertQueue: InsertQueue,
-    val scanner: ScannerFactory,
-    val dao: ScanResultDao
+    val scanner: ScannerFactory
 ) {
     private val batch = ConcurrentHashMap<String, Completable>()
-    private val connected = ConcurrentHashMap<String, Boolean>()
+
+    var prevMode: String? = ScannerFactory.SCAN_MODE_QUEUE
 
     val connectDisp = AtomicReference<Disposable?>(null)
 
@@ -41,9 +40,7 @@ class BroadcastReceiverState @Inject constructor(
 
         //Timber.v( "batch len ${scanResult.size}")
         for (result in scanResult.distinctBy { v -> v.bleDevice.macAddress }) {
-
-            if (connected.putIfAbsent(result.bleDevice.macAddress, true) == null)
-                executeBatch(result, legacy)
+            executeBatch(result, legacy)
         }
     }
 
@@ -58,41 +55,29 @@ class BroadcastReceiverState @Inject constructor(
 
     fun executeBatch(result: ScanResult, legacy: Boolean) {
         val s = scanner.createScanner()
-        val f = s.insertResult(result, legacy)
-            .doOnSuccess { Timber.v("inserted result?") }
-            .flatMapCompletable { scanResult ->
-                val mac = scanResult.second.bleDevice.macAddress
-                dao.attemptConnect(mac)
-                    .flatMapCompletable { connected ->
-                        if (!connected) {
-                            s.discoverServices(
-                                scanResult.second.bleDevice,
-                                scanResult.first
-                            ).andThen(dao.setConnected(mac))
-                        } else {
-                            Timber.v("skipping mac $mac, already connected")
-                            Completable.complete()
-                        }
-                    }
-            }.doOnComplete { Timber.w("connect complete") }
-            .doOnSubscribe {
-                Timber.v("batch with size ${batch.size}")
-            }
-            .doFinally {
-                batch.remove(result.bleDevice.macAddress)
-                connected.remove(result.bleDevice.macAddress)
-                Timber.v("removing device ${result.bleDevice.macAddress}")
-            }
+
 
         val delay = prefs.getLong(ScannerFactory.PREF_DELAY, 5)
         val scanMode =
             prefs.getString(ScannerFactory.PREF_SCAN_MODE, ScannerFactory.SCAN_MODE_BATCH)
-        if (scanMode == ScannerFactory.SCAN_MODE_BATCH && batch.putIfAbsent(
-                result.bleDevice.macAddress,
-                f
-            ) == null
+
+        if (scanMode == ScannerFactory.SCAN_MODE_QUEUE && prevMode == ScannerFactory.SCAN_MODE_BATCH) {
+            batch.clear()
+        }
+
+        prevMode = scanMode
+
+        if (scanMode == ScannerFactory.SCAN_MODE_BATCH
         ) {
-            batchConnect(delay, TimeUnit.SECONDS)
+            if (batch.putIfAbsent(
+                    result.bleDevice.macAddress,
+                    s.connectWithDbCache(result, legacy)
+                        .doFinally {
+                            batch.remove(result.bleDevice.macAddress)
+                        }
+                ) == null) {
+                batchConnect(delay, TimeUnit.SECONDS)
+            }
         } else if (scanMode == ScannerFactory.SCAN_MODE_QUEUE) {
             Timber.v("device isConnectable ${result.isConnectable} ${result.callbackType}")
             return when (result.isConnectable) {
@@ -101,7 +86,7 @@ class BroadcastReceiverState @Inject constructor(
                         result.bleDevice,
                         s.insertResult(result, legacy)
                             .ignoreElement()
-                            .andThen(f)
+                            .andThen(s.connectWithDbCache(result, legacy))
                     )
                 }
 
@@ -110,7 +95,9 @@ class BroadcastReceiverState @Inject constructor(
                     if (legacy) {
                         queue.accept(
                             result.bleDevice,
-                            s.insertResult(result, true).ignoreElement().andThen(f)
+                            s.insertResult(result, true)
+                                .ignoreElement()
+                                .andThen(s.connectWithDbCache(result, true))
                         )
                     } else {
                         insertWithoutConnecting(result, false)
@@ -131,7 +118,11 @@ class BroadcastReceiverState @Inject constructor(
         connectDisp.updateAndGet { v ->
             when (v) {
                 null -> {
-                    val connect = Flowable.fromIterable(batch.values.toList())
+                    val connect = Flowable.defer {
+                        Flowable.fromIterable(batch.values.toList())
+                            .doOnSubscribe { batch.clear() }
+                    }
+
                     Completable.timer(delay, timeUnit, timeoutScheduler).andThen(connect)
                         .flatMapCompletable { v -> v }
                         .doFinally {

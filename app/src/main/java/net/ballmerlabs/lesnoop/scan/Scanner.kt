@@ -22,4 +22,5 @@ interface Scanner : Disposable {
     fun pauseScan()
     fun unpauseScan()
     fun setScanRunning(v: Boolean)
+    fun connectWithDbCache(result: ScanResult, legacy: Boolean): Completable
 }
