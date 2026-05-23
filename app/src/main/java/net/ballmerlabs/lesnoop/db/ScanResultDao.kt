@@ -37,6 +37,21 @@ interface ScanResultDao {
     @Query("SELECT macAddress FROM scan_results")
     fun getMacs(): Observable<List<String>>
 
+
+    @Query("SELECT connected FROM scan_results WHERE macAddress = :mac")
+    fun getConnected(mac: String): Single<Boolean>
+
+
+    fun attemptConnect(mac: String): Single<Boolean> {
+        return setConnectAttempted(mac).andThen( getConnected(mac))
+    }
+
+    @Query("UPDATE scan_results SET connected = '1' WHERE macAddress = :mac")
+    fun setConnected(mac: String): Completable
+
+    @Query("UPDATE scan_results SET connectAttempted = '1' WHERE macAddress = :mac")
+    fun setConnectAttempted(mac: String): Completable
+
     @Insert
     fun insertScanResult(scanResult: DbScanResult): Single<Long>
 

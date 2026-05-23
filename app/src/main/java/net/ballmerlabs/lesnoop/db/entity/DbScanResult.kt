@@ -24,7 +24,11 @@ data class DbScanResult(
     @Embedded val location: DbLocation? = null,
     val display: Int? = null,
     var legacy: Boolean? = null,
-    var tag: String? = null
+    var tag: String? = null,
+    @ColumnInfo(defaultValue = "0")
+    var connected: Boolean = false,
+    @ColumnInfo(defaultValue = "0")
+    var connectAttempted: Boolean = false
 
 ) {
     constructor(

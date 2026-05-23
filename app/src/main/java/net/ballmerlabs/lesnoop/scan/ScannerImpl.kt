@@ -394,11 +394,9 @@ class ScannerImpl @Inject constructor(
     }
 
 
-    override fun discoverServices(scanResult: RxBleDevice, dbid: Long?): Single<Boolean> {
+    override fun discoverServices(scanResult: RxBleDevice, dbid: Long?): Completable {
         return if (prefs.getBoolean(ScannerFactory.PREF_CONNECT, false)) {
-            scanResult.establishConnection(
-                false
-            ).timeout(35, TimeUnit.SECONDS, timeoutScheduler)
+            scanResult.establishConnection(false)
                 .doOnDispose { Timber.tag("debug").e("connection disposed") }
                 .doOnSubscribe {
                     Timber.v( "establishConnection ${scanResult.macAddress}")
@@ -442,7 +440,7 @@ class ScannerImpl @Inject constructor(
                         }
                 }.firstOrError()
                 .ignoreElement()
-                .timeout(60, TimeUnit.SECONDS, timeoutScheduler)
+                .timeout(35, TimeUnit.SECONDS, timeoutScheduler)
                 .doOnError { err ->
                     Timber.e(
                         "connection error ${scanResult.macAddress} $err"
@@ -450,14 +448,7 @@ class ScannerImpl @Inject constructor(
                 }
         } else {
             Completable.complete()
-        } .onErrorResumeNext { err: Throwable ->
-            scanResult.observeConnectionStateChanges().takeUntil { v ->  v == RxBleConnection.RxBleConnectionState.DISCONNECTED }
-                .ignoreElements()
-                .andThen(Completable.error(err))
-            }
-            .andThen(scanResult.observeConnectionStateChanges().takeUntil { v ->  v == RxBleConnection.RxBleConnectionState.DISCONNECTED }.ignoreElements())
-            .timeout(300, TimeUnit.SECONDS, timeoutScheduler)
-            .toSingleDefault(false)
+        }
 
 
     }
@@ -485,7 +476,7 @@ class ScannerImpl @Inject constructor(
     override fun startScanAndDiscover(legacy: Boolean): Observable<ScanResult> {
         return scanInternal(legacy).flatMapSingle { result ->
             if (prefs.getBoolean(ScannerFactory.PREF_CONNECT, false)) {
-                discoverServices(result.bleDevice).ignoreElement().onErrorComplete()
+                discoverServices(result.bleDevice)
                     .toSingleDefault(result)
             } else {
                 Single.just(result)

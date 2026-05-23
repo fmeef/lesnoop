@@ -120,7 +120,7 @@ class UuidTypeConverter {
         MetricsScanResultMapping::class
     ],
     exportSchema = true,
-    version = 12,
+    version = 13,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 6, 7),
@@ -128,7 +128,8 @@ class UuidTypeConverter {
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
-        AutoMigration(from = 11, to = 12)
+        AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13)
         // AutoMigration(from = 5, to = 6, spec = ScanDatabase.AutoMigrationMappingRename::class)
     ]
 )

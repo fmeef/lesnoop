@@ -13,7 +13,7 @@ class InsertQueue @Inject constructor(
     scanner: ScannerFactory
 ) : AbstractQueue<Completable>(scanner) {
     override val delay: Timeout
-        get() = Timeout(0, TimeUnit.SECONDS)
+        get() = Timeout(1, TimeUnit.SECONDS)
     override fun process(item: Completable): Completable {
         return item.doOnComplete { Timber.v( "insert without connect!") }
     }
