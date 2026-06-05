@@ -14,6 +14,7 @@ import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.Disposable
 import me.bytebeats.views.charts.pie.PieChartData
 import net.ballmerlabs.lesnoop.db.OuiParser
+import net.ballmerlabs.lesnoop.db.ScanDatabase
 import net.ballmerlabs.lesnoop.db.ScanResultDao
 import net.ballmerlabs.lesnoop.scan.LocationTagger
 import timber.log.Timber
@@ -25,6 +26,7 @@ import javax.inject.Named
 class ScanViewModel @Inject constructor(
     val scanResultDao: ScanResultDao,
     @param:Named(Module.DB_PATH) val dbPath: File,
+    val database: ScanDatabase,
     private val ouiParser: OuiParser,
     val scannerFactory: ScannerFactory,
     val locationTagger: LocationTagger,

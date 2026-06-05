@@ -399,24 +399,25 @@ class ScannerImpl @Inject constructor(
             .doOnError { e -> Timber.tag(NAME).e("scan error $e") }
     }
 
-    override fun connectWithDbCache(result: ScanResult, legacy: Boolean): Completable {
+    override fun connectWithDbCache(result: ScanResult, legacy: Boolean): Single<Boolean> {
         return insertResult(result, legacy)
             .doOnSuccess { Timber.v("inserted result?") }
-            .flatMapCompletable { scanResult ->
+            .flatMap { scanResult ->
                 val mac = scanResult.second.bleDevice.macAddress
                 dao.attemptConnect(mac)
-                    .flatMapCompletable { connected ->
+                    .flatMap { connected ->
                         if (!connected) {
                             discoverServices(
                                 scanResult.second.bleDevice,
                                 scanResult.first
                             ).andThen(dao.setConnected(mac))
+                                .toSingleDefault(true)
                         } else {
                             Timber.v("skipping mac $mac, already connected")
-                            Completable.complete()
+                            Single.just(false)
                         }
                     }
-            }.doOnComplete { Timber.w("connect complete") }
+            }.doOnSuccess { v -> Timber.w("connect complete: $v") }
             .doFinally {
 //                batch.remove(result.bleDevice.macAddress)
   //              connected.remove(result.bleDevice.macAddress)

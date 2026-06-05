@@ -42,6 +42,7 @@ fun DbChartView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
         contract = ActivityResultContracts.CreateDocument("application/x-sqlite3")
     ){ uri: Uri? ->
         scope.launch(Dispatchers.IO) {
+            model.database.checkpoint()
             val f = model.dbPath.inputStream()
             if (uri != null) {
                 val out = context.contentResolver.openOutputStream(uri)

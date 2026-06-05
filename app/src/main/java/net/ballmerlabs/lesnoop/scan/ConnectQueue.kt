@@ -4,11 +4,14 @@ import android.content.SharedPreferences
 import com.polidea.rxandroidble3.RxBleDevice
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Scheduler
+import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.Disposable
 import net.ballmerlabs.lesnoop.Module
 import net.ballmerlabs.lesnoop.ScannerFactory
 import net.ballmerlabs.lesnoop.db.ScanResultDao
+import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -23,15 +26,22 @@ class ConnectQueue @Inject constructor(
     private val inflight = ConcurrentHashMap<String, Disposable>()
 
 
-    fun accept(device: RxBleDevice, value: Completable) {
+    fun accept(device: RxBleDevice, value: Single<Boolean>) {
         val max = prefs.getInt(ScannerFactory.PREF_MAX_CONNECTION, 7)
         if (inflight.size <= max) {
             inflight.computeIfAbsent(device.macAddress) { key ->
                 value
-                    .doFinally { inflight.remove(key)?.dispose() }
+                    .timeout(15, TimeUnit.SECONDS, timeoutScheduler)
+                    .doFinally { inflight.remove(device.macAddress)?.dispose() }
                     .subscribe(
-                        { },
-                        { err -> }
+                        { v ->
+                            if (v)
+                                shutdown()
+                        },
+                        { err ->
+                            Timber.e("queue connect error $err")
+                            shutdown()
+                        }
 
                     )
             }
@@ -39,9 +49,11 @@ class ConnectQueue @Inject constructor(
     }
 
     fun shutdown() {
-        inflight.values.forEach { v ->
+        val values = inflight.values.toList()
+        inflight.clear()
+        values.forEach { v ->
             v.dispose()
         }
-        inflight.clear()
+
     }
 }

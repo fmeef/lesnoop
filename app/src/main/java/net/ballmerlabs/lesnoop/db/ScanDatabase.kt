@@ -139,4 +139,10 @@ abstract class ScanDatabase : RoomDatabase() {
 
     @RenameTable(fromTableName = "ServiceScanResultMapping", toTableName = "scan_service_mapping")
     class AutoMigrationMappingRename : AutoMigrationSpec
+
+    fun checkpoint() {
+        val db = openHelper.writableDatabase
+        db.query("PRAGMA wal_checkpoint(FULL);")
+        db.query("PRAGMA wal_checkpoint(TRUNCATE);")
+    }
 }

@@ -71,7 +71,10 @@ class BroadcastReceiverState @Inject constructor(
         ) {
             if (batch.putIfAbsent(
                     result.bleDevice.macAddress,
-                    s.connectWithDbCache(result, legacy)
+                    s.insertResult(result, true)
+                        .ignoreElement()
+                        .andThen(s.connectWithDbCache(result, legacy))
+                        .ignoreElement()
                         .doFinally {
                             batch.remove(result.bleDevice.macAddress)
                         }
