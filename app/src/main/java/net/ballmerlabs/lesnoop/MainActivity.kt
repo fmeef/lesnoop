@@ -29,6 +29,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndSelectAll
 import androidx.compose.foundation.text.input.then
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomAppBar
@@ -326,6 +327,28 @@ fun ScanDialog(modifier: Modifier = Modifier, prefs: SharedPreferences, s: () ->
 }
 
 
+@Composable
+fun TimeoutBox(modifier: Modifier = Modifier, prefs: SharedPreferences) {
+    val timeoutState = rememberTextFieldState(prefs.getLong(ScannerFactory.PREF_CONNECT_TIMEOUT, 7).toString())
+    Row(modifier = modifier) {
+        OutlinedTextField(
+            state = timeoutState,
+            label = { Text("Connect timeout") },
+            inputTransformation = {
+                if (!timeoutState.text.isDigitsOnly()) {
+                    timeoutState.setTextAndSelectAll("0")
+                }
+            },
+            outputTransformation = {
+                prefs.edit {
+                    putLong(ScannerFactory.PREF_CONNECT_TIMEOUT, timeoutState.text.toString().toLongOrNull()?:7)
+                    apply()
+                }
+            }
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @ExperimentalPermissionsApi
@@ -474,6 +497,9 @@ fun ScanPage(s: () -> ScannerFactory, prefs: SharedPreferences) {
                     PowerButton(mode = ScanSettings.SCAN_MODE_LOW_LATENCY, selected = scanPower)
                     PowerButton(mode = ScanSettings.SCAN_MODE_OPPORTUNISTIC, selected = scanPower)
             }
+
+
+            TimeoutBox(modifier = Modifier.fillMaxWidth(), prefs)
 
 
             Column(

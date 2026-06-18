@@ -31,12 +31,11 @@ class ConnectQueue @Inject constructor(
         if (inflight.size <= max) {
             inflight.computeIfAbsent(device.macAddress) { key ->
                 value
-                    .timeout(15, TimeUnit.SECONDS, timeoutScheduler)
-                    .doFinally { inflight.remove(device.macAddress)?.dispose() }
+                    .timeout(prefs.getLong(ScannerFactory.PREF_CONNECT_TIMEOUT, 7), TimeUnit.SECONDS, timeoutScheduler)
+                    .doFinally { inflight.remove(device.macAddress) }
                     .subscribe(
                         { v ->
-                            if (v)
-                                shutdown()
+                            Timber.e("connect success!")
                         },
                         { err ->
                             Timber.e("queue connect error $err")

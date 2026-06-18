@@ -20,6 +20,7 @@ import com.polidea.rxandroidble3.RxBleClient
 import com.polidea.rxandroidble3.RxBleConnection
 import com.polidea.rxandroidble3.RxBleDevice
 import com.polidea.rxandroidble3.RxBlePhyOption
+import com.polidea.rxandroidble3.Timeout
 import com.polidea.rxandroidble3.exceptions.BleAlreadyConnectedException
 import com.polidea.rxandroidble3.exceptions.BleDisconnectedException
 import com.polidea.rxandroidble3.exceptions.BleScanException
@@ -54,11 +55,13 @@ import net.ballmerlabs.lesnoop.newPendingIntent
 import net.ballmerlabs.lesnoop.rxPrefs
 import timber.log.Timber
 import java.util.Date
+import java.util.Optional
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Named
+import kotlin.jvm.optionals.getOrNull
 
 private fun <T : Any> handleUndocumentedScanThrottling(
     e: Observable<Throwable>, defaultDelay: Long = 10
@@ -66,7 +69,7 @@ private fun <T : Any> handleUndocumentedScanThrottling(
     return e.concatMap { err ->
         if (err is BleScanException && err.retryDateSuggestion != null) {
             val delay = err.retryDateSuggestion!!.time - Date().time
-            Timber.e( "undocumented scan throttling. Waiting $delay seconds")
+            Timber.e("undocumented scan throttling. Waiting $delay seconds")
             Completable.complete().delay(delay, TimeUnit.SECONDS).andThen(Observable.error(err))
         } else {
             Completable.complete().delay(defaultDelay, TimeUnit.SECONDS)
@@ -122,7 +125,7 @@ class ScannerImpl @Inject constructor(
     override fun pauseScan() {
         val pendingIntent =
             newPendingIntent(applicationContext, NonLegacyBroadcastReceiver::class.java)
-        val legacyIntent  =
+        val legacyIntent =
             newPendingIntent(applicationContext, LegacyBroadcastReceiver::class.java)
         val scanner = bluetoothManager.adapter?.bluetoothLeScanner
         if (ActivityCompat.checkSelfPermission(
@@ -146,14 +149,18 @@ class ScannerImpl @Inject constructor(
         if (scanRunning.get()) {
             val pendingIntent =
                 newPendingIntent(applicationContext, NonLegacyBroadcastReceiver::class.java)
-            val legacyIntent = newPendingIntent(applicationContext, LegacyBroadcastReceiver::class.java)
+            val legacyIntent =
+                newPendingIntent(applicationContext, LegacyBroadcastReceiver::class.java)
             val scanner = bluetoothManager.adapter?.bluetoothLeScanner
 
             val legacy = prefs.getBoolean(PREF_LEGACY, false)
             val phy = prefs.getString(
                 PREF_PRIMARY_PHY, PHY_1M
             ) ?: PHY_1M
-            val scanPower = prefs.getInt(ScannerFactory.PREF_SCAN_POWER, android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER)
+            val scanPower = prefs.getInt(
+                ScannerFactory.PREF_SCAN_POWER,
+                android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER
+            )
             val phyVal = service.phyToVal(phy)
             val reportDelay = prefs.getLong(PREF_REPORT_DELAY, 3000)
             val reportDelayEnabled = prefs.getBoolean(PREF_REPORT_DELAY_ENABLED, false)
@@ -165,14 +172,14 @@ class ScannerImpl @Inject constructor(
                 return
             }
 
-            Timber.v( "unpauseScan ${serviceState().value} reportDelayEnabled=$reportDelayEnabled reportDelay=$reportDelay")
+            Timber.v("unpauseScan ${serviceState().value} reportDelayEnabled=$reportDelayEnabled reportDelay=$reportDelay")
 
             val settings =
                 android.bluetooth.le.ScanSettings.Builder()
                     .setScanMode(scanPower)
                     .apply {
                         if (phyVal != null)
-                        setPhy(phyVal)
+                            setPhy(phyVal)
                     }
                     .setLegacy(false)
                     .apply {
@@ -257,7 +264,10 @@ class ScannerImpl @Inject constructor(
         updatePrefScan(false)
     }
 
-    override fun insertResult(scanResult: ScanResult, legacy: Boolean): Single<Pair<Long, ScanResult>> {
+    override fun insertResult(
+        scanResult: ScanResult,
+        legacy: Boolean
+    ): Single<Pair<Long, ScanResult>> {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val phy = prefs.getString(PREF_PRIMARY_PHY, null)
         val phyVal = service.phyToVal(phy)
@@ -277,7 +287,7 @@ class ScannerImpl @Inject constructor(
                     }
             }.flatMap { result ->
                 result.legacy = legacy
-                val tag = prefs.getString(ScannerFactory.PREF_CURRENT_TAG, "")?:""
+                val tag = prefs.getString(ScannerFactory.PREF_CURRENT_TAG, "") ?: ""
                 if (tag.trim().isNotEmpty()) {
                     result.tag = tag
                 }
@@ -285,7 +295,7 @@ class ScannerImpl @Inject constructor(
                     .subscribeOn(dbScheduler)
 
             }.map { r -> Pair(r, scanResult) }
-            .doOnError { err -> Timber.e( "failed to insert result $err") }
+            .doOnError { err -> Timber.e("failed to insert result $err") }
     }
 
     private fun <T : Any> smartRetry(connection: Observable<T>, times: Int): Observable<T> {
@@ -358,7 +368,7 @@ class ScannerImpl @Inject constructor(
                     "foreground scan result: $res"
                 )
             },
-            { err -> Timber.e( "foreground scan error: $err") })
+            { err -> Timber.e("foreground scan error: $err") })
 
         foregroundDisp.getAndSet(disp)?.dispose()
     }
@@ -420,7 +430,7 @@ class ScannerImpl @Inject constructor(
             }.doOnSuccess { v -> Timber.w("connect complete: $v") }
             .doFinally {
 //                batch.remove(result.bleDevice.macAddress)
-  //              connected.remove(result.bleDevice.macAddress)
+                //              connected.remove(result.bleDevice.macAddress)
                 Timber.v("removing device ${result.bleDevice.macAddress}")
             }
 
@@ -429,10 +439,15 @@ class ScannerImpl @Inject constructor(
 
     override fun discoverServices(scanResult: RxBleDevice, dbid: Long?): Completable {
         return if (prefs.getBoolean(ScannerFactory.PREF_CONNECT, false)) {
-            scanResult.establishConnection(false)
+            scanResult.establishConnection(
+                false, Timeout(
+                    prefs.getLong(ScannerFactory.PREF_CONNECT_TIMEOUT, 7),
+                    TimeUnit.SECONDS
+                )
+            )
                 .doOnDispose { Timber.tag("debug").e("connection disposed") }
                 .doOnSubscribe {
-                    Timber.v( "establishConnection ${scanResult.macAddress}")
+                    Timber.v("establishConnection ${scanResult.macAddress}")
                 }.flatMapSingle { c ->
                     val tx = service.phyToRxBle()
                     Timber.e(
@@ -441,17 +456,20 @@ class ScannerImpl @Inject constructor(
                     val obs = if (tx.isNotEmpty()) {
                         c.setPreferredPhy(
                             tx, tx, RxBlePhyOption.PHY_OPTION_NO_PREFERRED
-                        ).flatMapObservable { phy ->
-                            discoverWithPhy(c, phy)
-                        }.doOnError { err ->
-                            Timber.e( "failed to discover services: $err")
-                        }
+                        ).map { v -> Optional.of(v) }
+                            .onErrorReturnItem(Optional.empty())
+                            .flatMapObservable { phy ->
+                                discoverWithPhy(c, phy.getOrNull())
+                            }
+                            .doOnError { err ->
+                                Timber.e("failed to discover services: $err")
+                            }
                     } else {
                         discoverWithPhy(c)
                     }.toList()
 
                     obs.flatMap { services ->
-                        Timber.v( "got services: $services")
+                        Timber.v("got services: $services")
                         Single.fromCallable {
                             database.insertService(services, scanResult = dbid)
                             true
@@ -473,7 +491,6 @@ class ScannerImpl @Inject constructor(
                         }
                 }.firstOrError()
                 .ignoreElement()
-                .timeout(35, TimeUnit.SECONDS, timeoutScheduler)
                 .doOnError { err ->
                     Timber.e(
                         "connection error ${scanResult.macAddress} $err"
@@ -531,7 +548,7 @@ class ScannerImpl @Inject constructor(
     }
 
     init {
-        Timber.v( "scanner crated")
+        Timber.v("scanner crated")
     }
 
     companion object {
