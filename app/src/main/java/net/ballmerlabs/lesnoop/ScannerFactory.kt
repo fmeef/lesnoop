@@ -9,11 +9,17 @@ import android.content.Intent
 import android.content.SharedPreferences
 import androidx.lifecycle.LiveData
 import androidx.preference.PreferenceManager
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.polidea.rxandroidble3.RxBlePhy
 import dagger.hilt.android.qualifiers.ApplicationContext
+import net.ballmerlabs.lesnoop.scan.RESTART_SCAN_WORKER_ID
+import net.ballmerlabs.lesnoop.scan.RestartScanWorker
 import net.ballmerlabs.lesnoop.scan.Scanner
 import timber.log.Timber
 import java.lang.IllegalArgumentException
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,6 +41,24 @@ class ScannerFactory @Inject constructor(
                 else -> s
             }
         }!!.scanner()
+    }
+
+    fun startRestartTimer() {
+        val request = PeriodicWorkRequestBuilder<RestartScanWorker>(5.toLong(), TimeUnit.MINUTES)
+            .setId(RESTART_SCAN_WORKER_ID)
+            .build()
+
+        WorkManager.getInstance(applicationContext)
+            .enqueueUniquePeriodicWork(
+                RESTART_SCAN_WORKER_ID.toString(),
+                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+                request
+            )
+    }
+
+    fun stopRestartTimer() {
+        WorkManager.getInstance(applicationContext)
+            .cancelUniqueWork(RESTART_SCAN_WORKER_ID.toString())
     }
 
     fun destroyScanner() {

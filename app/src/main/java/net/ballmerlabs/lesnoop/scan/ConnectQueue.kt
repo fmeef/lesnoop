@@ -35,7 +35,7 @@ class ConnectQueue @Inject constructor(
                     .doFinally { inflight.remove(device.macAddress) }
                     .subscribe(
                         { v ->
-                            Timber.e("connect success!")
+                            Timber.w("connect success!")
                         },
                         { err ->
                             Timber.e("queue connect error $err")

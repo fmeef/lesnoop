@@ -21,18 +21,28 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import androidx.hilt.work.HiltWorkerFactory
 import androidx.lifecycle.MutableLiveData
+import androidx.work.Configuration
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequest
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.polidea.rxandroidble3.LogConstants
 import com.polidea.rxandroidble3.LogOptions
 import com.polidea.rxandroidble3.RxBleClient
 import com.polidea.rxandroidble3.internal.RxBleLog
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.reactivex.rxjava3.plugins.RxJavaPlugins
 import net.ballmerlabs.lesnoop.ScannerFactory.Companion.PREF_LEGACY
 import net.ballmerlabs.lesnoop.scan.ConnectQueue
 import net.ballmerlabs.lesnoop.scan.InsertQueue
 import net.ballmerlabs.lesnoop.scan.LocationTagger
+import net.ballmerlabs.lesnoop.scan.RESTART_SCAN_WORKER_ID
+import net.ballmerlabs.lesnoop.scan.RestartScanWorker
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 fun newPendingIntent(context: Context, c: Class<*>): PendingIntent =
@@ -93,6 +103,7 @@ class BackgroundScanService : Service() {
     lateinit var soundUri: Uri
 
 
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         val scanMode = prefs
@@ -115,7 +126,7 @@ class BackgroundScanService : Service() {
 
         }
 
-
+        clientScanner.startRestartTimer()
 
         val scanner = bluetoothManager.adapter?.bluetoothLeScanner
         val client = clientScanner.createScanner()
@@ -155,6 +166,7 @@ class BackgroundScanService : Service() {
         Timber.w("service stopped")
         wakeLockProvider.releaseAll()
         running.postValue(false)
+        clientScanner.stopRestartTimer()
         val scanner = clientScanner.createScanner()
         val pendingIntent = newPendingIntent(this, NonLegacyBroadcastReceiver::class.java)
         val legacyIntent = newPendingIntent(this, LegacyBroadcastReceiver::class.java)
