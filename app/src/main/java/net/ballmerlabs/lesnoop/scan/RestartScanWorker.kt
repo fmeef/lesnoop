@@ -25,9 +25,9 @@ class RestartScanWorker @AssistedInject constructor(
 ) : Worker(context, workerParameters) {
 
     override fun doWork(): Result {
-        Log.e("debug", "restarting background scan service")
-            service.createScanner().pauseScan()
-            service.createScanner().unpauseScan()
+        Timber.tag("debug").e("restarting background scan service")
+        service.createScanner().pauseScan()
+        service.createScanner().unpauseScan()
         return Result.success()
     }
 }

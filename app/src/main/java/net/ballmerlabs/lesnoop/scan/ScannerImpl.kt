@@ -93,7 +93,6 @@ class ScannerImpl @Inject constructor(
     val bluetoothManager: BluetoothManager,
     val finalizer: ScanSubcomponentFinalizer,
     val prefs: SharedPreferences,
-    val dao: ScanResultDao
 ) : Scanner {
     private val disp = CompositeDisposable()
     private val scanRunning = AtomicBoolean(false)
@@ -394,33 +393,19 @@ class ScannerImpl @Inject constructor(
 //
 //    }
 
-    private fun scanInternal(mac: String): Observable<ScanResult> {
-        val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
-            .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
-            .build()
-        val filter = ScanFilter.Builder()
-            .setDeviceAddress(mac)
-            .build()
-        return client.scanBleDevices(
-            settings, filter
-        ).doOnSubscribe { d -> disp.add(d) }
-            .retryWhen { e -> handleUndocumentedScanThrottling<ScanResult>(e) }
-            .doOnNext { r -> Timber.tag(NAME).v("scan result $r") }
-            .doOnError { e -> Timber.tag(NAME).e("scan error $e") }
-    }
-
     override fun connectWithDbCache(result: ScanResult, legacy: Boolean): Single<Boolean> {
         return insertResult(result, legacy)
             .doOnSuccess { Timber.v("inserted result?") }
             .flatMap { scanResult ->
                 val mac = scanResult.second.bleDevice.macAddress
-                dao.attemptConnect(mac)
+                database.attemptConnect(mac)
+                    .subscribeOn(dbScheduler)
                     .flatMap { connected ->
                         if (!connected) {
                             discoverServices(
                                 scanResult.second.bleDevice,
                                 scanResult.first
-                            ).andThen(dao.setConnected(mac))
+                            ).andThen(database.setConnected(mac).subscribeOn(dbScheduler))
                                 .toSingleDefault(true)
                         } else {
                             Timber.v("skipping mac $mac, already connected")
@@ -440,20 +425,23 @@ class ScannerImpl @Inject constructor(
     override fun discoverServices(scanResult: RxBleDevice, dbid: Long?): Completable {
         return if (prefs.getBoolean(ScannerFactory.PREF_CONNECT, false)) {
             scanResult.establishConnection(
-                false, Timeout(
-                    prefs.getLong(ScannerFactory.PREF_CONNECT_TIMEOUT, 7),
-                    TimeUnit.SECONDS
-                )
+                false
+//                Timeout(
+//                    prefs.getLong(ScannerFactory.PREF_CONNECT_TIMEOUT, 7),
+//                    TimeUnit.SECONDS
+//                )
             )
                 .doOnDispose { Timber.tag("debug").e("connection disposed") }
                 .doOnSubscribe {
                     Timber.v("establishConnection ${scanResult.macAddress}")
-                }.flatMapSingle { c ->
+                }
+                .firstOrError()
+                .concatMapCompletable { c ->
                     val tx = service.phyToRxBle()
                     Timber.e(
                         "got connection ${scanResult.macAddress} $tx"
                     )
-                    val obs = if (tx.isNotEmpty()) {
+                    if (tx.isNotEmpty()) {
                         c.setPreferredPhy(
                             tx, tx, RxBlePhyOption.PHY_OPTION_NO_PREFERRED
                         ).map { v -> Optional.of(v) }
@@ -466,31 +454,24 @@ class ScannerImpl @Inject constructor(
                             }
                     } else {
                         discoverWithPhy(c)
-                    }.toList()
-
-                    obs.flatMap { services ->
-                        Timber.v("got services: $services")
-                        Single.fromCallable {
-                            database.insertService(services, scanResult = dbid)
-                            true
-                        }.subscribeOn(dbScheduler)
                     }
-                        .flatMap { v ->
+                        .toList()
+                        .flatMapCompletable { services ->
+                            Timber.v("got services: $services")
+                            Completable.fromAction {
+                                database.insertService(services, scanResult = dbid)
+                            }.subscribeOn(dbScheduler)
+                        }
+                        .andThen(
                             database.incrementConnected()
                                 .subscribeOn(dbScheduler)
-                                .toSingleDefault(v)
-                        }
-                        .doOnSuccess {
+                        )
+                        .doOnComplete {
                             Timber.v(
                                 "successfully discovered services for ${scanResult.macAddress}"
                             )
-                        }.doOnError { err ->
-                            Timber.v(
-                                "failed to connect $tx, continuing without: $err"
-                            )
                         }
-                }.firstOrError()
-                .ignoreElement()
+                }
                 .doOnError { err ->
                     Timber.e(
                         "connection error ${scanResult.macAddress} $err"

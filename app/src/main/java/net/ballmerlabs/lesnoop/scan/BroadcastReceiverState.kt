@@ -67,6 +67,7 @@ class BroadcastReceiverState @Inject constructor(
 
         prevMode = scanMode
 
+
         if (scanMode == ScannerFactory.SCAN_MODE_BATCH
         ) {
             if (batch.putIfAbsent(
@@ -85,22 +86,19 @@ class BroadcastReceiverState @Inject constructor(
             Timber.v("device isConnectable ${result.isConnectable} ${result.callbackType}")
             return when (result.isConnectable) {
                 IsConnectable.CONNECTABLE -> {
+                    insertWithoutConnecting(result, legacy)
                     queue.accept(
                         result.bleDevice,
-                        s.insertResult(result, legacy)
-                            .ignoreElement()
-                            .andThen(s.connectWithDbCache(result, legacy))
+                        s.connectWithDbCache(result, legacy)
                     )
                 }
 
                 IsConnectable.NOT_CONNECTABLE -> insertWithoutConnecting(result, legacy)
                 IsConnectable.LEGACY_UNKNOWN -> {
+                    insertWithoutConnecting(result, legacy)
                     if (legacy) {
                         queue.accept(
-                            result.bleDevice,
-                            s.insertResult(result, true)
-                                .ignoreElement()
-                                .andThen(s.connectWithDbCache(result, true))
+                            result.bleDevice, s.connectWithDbCache(result, true)
                         )
                     } else {
                         insertWithoutConnecting(result, false)

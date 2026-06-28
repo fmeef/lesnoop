@@ -44,16 +44,19 @@ class ScannerFactory @Inject constructor(
     }
 
     fun startRestartTimer() {
-        val request = PeriodicWorkRequestBuilder<RestartScanWorker>(5.toLong(), TimeUnit.MINUTES)
-            .setId(RESTART_SCAN_WORKER_ID)
-            .build()
+        val delay = prefs.getLong(PREF_RESTART_DELAY, -1)
+        if (delay > 0) {
+            val request = PeriodicWorkRequestBuilder<RestartScanWorker>(delay, TimeUnit.MINUTES)
+                .setId(RESTART_SCAN_WORKER_ID)
+                .build()
 
-        WorkManager.getInstance(applicationContext)
-            .enqueueUniquePeriodicWork(
-                RESTART_SCAN_WORKER_ID.toString(),
-                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
-                request
-            )
+            WorkManager.getInstance(applicationContext)
+                .enqueueUniquePeriodicWork(
+                    RESTART_SCAN_WORKER_ID.toString(),
+                    ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
+                    request
+                )
+        }
     }
 
     fun stopRestartTimer() {
@@ -183,5 +186,6 @@ class ScannerFactory @Inject constructor(
         const val PREF_SCAN_POWER = "scan-power"
         const val PREF_CURRENT_TAG = "current-tag"
         const val PREF_CONNECT_TIMEOUT = "connect-timeout"
+        const val PREF_RESTART_DELAY = "restart-delay"
     }
 }

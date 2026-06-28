@@ -32,14 +32,15 @@ class ConnectQueue @Inject constructor(
             inflight.computeIfAbsent(device.macAddress) { key ->
                 value
                     .timeout(prefs.getLong(ScannerFactory.PREF_CONNECT_TIMEOUT, 7), TimeUnit.SECONDS, timeoutScheduler)
-                    .doFinally { inflight.remove(device.macAddress) }
+                    .doFinally { inflight.remove(key) }
+                    .doOnDispose { inflight.remove(key) }
                     .subscribe(
                         { v ->
                             Timber.w("connect success!")
+                           // shutdown()
                         },
                         { err ->
                             Timber.e("queue connect error $err")
-                            shutdown()
                         }
 
                     )
@@ -49,10 +50,10 @@ class ConnectQueue @Inject constructor(
 
     fun shutdown() {
         val values = inflight.values.toList()
-        inflight.clear()
         values.forEach { v ->
             v.dispose()
         }
 
+        inflight.clear()
     }
 }

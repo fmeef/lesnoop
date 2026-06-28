@@ -5,15 +5,11 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.health.connect.datatypes.units.Power
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.setContent
-import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -39,7 +35,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Label
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -54,8 +49,6 @@ import androidx.compose.material3.TooltipState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.IntState
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
@@ -71,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -330,7 +322,8 @@ fun ScanDialog(modifier: Modifier = Modifier, prefs: SharedPreferences, s: () ->
 @Composable
 fun TimeoutBox(modifier: Modifier = Modifier, prefs: SharedPreferences) {
     val timeoutState = rememberTextFieldState(prefs.getLong(ScannerFactory.PREF_CONNECT_TIMEOUT, 7).toString())
-    Row(modifier = modifier) {
+    Column (modifier = modifier) {
+        Text("Connect timeout")
         OutlinedTextField(
             state = timeoutState,
             label = { Text("Connect timeout") },
@@ -346,6 +339,52 @@ fun TimeoutBox(modifier: Modifier = Modifier, prefs: SharedPreferences) {
                 }
             }
         )
+    }
+}
+
+
+@Composable
+fun RestartBox(modifier: Modifier = Modifier, prefs: SharedPreferences) {
+    val delayState = rememberTextFieldState(prefs.getLong(ScannerFactory.PREF_RESTART_DELAY, -1).toString())
+    val delay = delayState.text.toString().toLongOrNull()?:-1
+    Column(modifier = modifier) {
+        Text("Scan auto restart")
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Switch(checked = delay > 0, onCheckedChange = { c ->
+                if (!c) {
+                    prefs.edit {
+                        putLong(ScannerFactory.PREF_RESTART_DELAY, -1)
+                        apply()
+                    }
+                    delayState.setTextAndSelectAll("-1")
+                } else {
+                    prefs.edit {
+                        putLong(ScannerFactory.PREF_RESTART_DELAY, 5)
+                        apply()
+                    }
+                    delayState.setTextAndSelectAll("5")
+                }
+            })
+            OutlinedTextField(
+                state = delayState,
+                label = { Text("Restart delay") },
+                enabled = delay > 0,
+                inputTransformation = {
+                    if (!delayState.text.isDigitsOnly()) {
+                        delayState.setTextAndSelectAll("0")
+                    }
+                },
+                outputTransformation = {
+                    prefs.edit {
+                        putLong(
+                            ScannerFactory.PREF_RESTART_DELAY,
+                            delayState.text.toString().toLongOrNull() ?: -1
+                        )
+                        apply()
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -501,6 +540,7 @@ fun ScanPage(s: () -> ScannerFactory, prefs: SharedPreferences) {
 
             TimeoutBox(modifier = Modifier.fillMaxWidth(), prefs)
 
+            RestartBox(modifier = Modifier.fillMaxWidth(), prefs)
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
