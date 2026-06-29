@@ -509,10 +509,12 @@ class ScannerImpl @Inject constructor(
                             )
                         }
                 }
-                .doOnError { err ->
+                .onErrorResumeNext { err: Throwable ->
                     Timber.e(
                         "connection error ${scanResult.macAddress} $err"
                     )
+                    database.incrementError().subscribeOn(dbScheduler).concatWith(
+                    Completable.error(err))
                 }
         } else {
             Completable.complete()

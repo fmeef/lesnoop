@@ -101,4 +101,9 @@ interface ScanResultDao {
         "UPDATE OR IGNORE metrics SET connected = connected+1 WHERE run = (" + "SELECT run FROM metrics ORDER BY date DESC LIMIT 1)"
     )
     fun incrementConnected(): Completable
+
+    @Query(
+        "UPDATE OR IGNORE metrics SET error = error+1 WHERE run = (" + "SELECT run FROM metrics ORDER BY date DESC LIMIT 1)"
+    )
+    fun incrementError(): Completable
 }

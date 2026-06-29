@@ -143,6 +143,7 @@ fun MetricsView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
             Text("new: ${metrics?.newCount}")
             Text("already seen: ${metrics?.oldCount}")
             Text("connected: ${metrics?.connected}")
+            Text("error: ${metrics?.error}")
             Text("inflight: $connected")
         }
 

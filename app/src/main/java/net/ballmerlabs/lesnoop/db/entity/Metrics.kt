@@ -22,5 +22,7 @@ data class Metrics(
     @ColumnInfo(name = "new_count", defaultValue = "0")
     val newCount: Long,
     @ColumnInfo(name = "connected", defaultValue = "0")
-    val connected: Long
+    val connected: Long,
+    @ColumnInfo(name = "error", defaultValue = "0")
+    val error: Long
 )

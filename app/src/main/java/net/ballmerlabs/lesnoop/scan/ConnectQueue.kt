@@ -70,6 +70,7 @@ class ConnectQueue @Inject constructor(
         }
     }
 
+    @Synchronized
     fun shutdown() {
         val values = inflight.values.toList()
         values.forEach { v ->
@@ -77,5 +78,6 @@ class ConnectQueue @Inject constructor(
         }
 
         inflight.clear()
+        connectedStats.accept(inflight.size)
     }
 }
