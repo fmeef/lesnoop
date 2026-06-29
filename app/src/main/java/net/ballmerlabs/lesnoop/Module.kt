@@ -25,12 +25,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.plugins.RxJavaPlugins
+import io.reactivex.rxjava3.schedulers.Schedulers
 import net.ballmerlabs.lesnoop.db.MIGATION_2_3
 import net.ballmerlabs.lesnoop.scan.RxBlessedCentralCallback
 import net.ballmerlabs.lesnoop.scan.RxBlessedPeripheralSubcomponent
 import net.ballmerlabs.lesnoop.scan.ScreenOffReceiver
 import java.io.File
 import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import javax.inject.Named
 import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
@@ -53,10 +55,8 @@ abstract class Module {
         @Provides
         @Singleton
         @Named(DB_SCHEDULER)
-        fun provideDbSceduler(): Scheduler {
-            return RxJavaPlugins.createIoScheduler { r ->
-                Thread(r)
-            }
+        fun provideDbScheduler(): Scheduler {
+            return Schedulers.from(Executors.newFixedThreadPool(4))
         }
 
         @Provides
@@ -148,7 +148,7 @@ abstract class Module {
         @Provides
         @Singleton
         @Named(EXECUTOR_COMPUTE)
-        fun provideScanExecutor(@Named(DB_SCHEDULER) scheduler: Scheduler): Executor {
+        fun provideScanExecutor(@Named(COMPUTE_SCHEDULER) scheduler: Scheduler): Executor {
             return Executor { t ->
                 scheduler.scheduleDirect(t)
             }

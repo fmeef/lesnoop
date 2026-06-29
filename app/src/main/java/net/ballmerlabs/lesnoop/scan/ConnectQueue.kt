@@ -2,6 +2,8 @@ package net.ballmerlabs.lesnoop.scan
 
 import android.content.SharedPreferences
 import com.polidea.rxandroidble3.RxBleDevice
+import com.polidea.rxandroidble3.exceptions.BleAlreadyConnectedException
+import com.polidea.rxandroidble3.exceptions.BleDisconnectedException
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
@@ -40,7 +42,22 @@ class ConnectQueue @Inject constructor(
                            // shutdown()
                         },
                         { err ->
-                            Timber.e("queue connect error $err")
+                            when (err) {
+                                is BleDisconnectedException -> {
+                                    when (err.state) {
+                                        133 -> shutdown()
+
+                                        else -> Unit
+                                    }
+                                }
+
+                                is BleAlreadyConnectedException -> {
+                                    shutdown()
+                                }
+
+                                else -> Unit
+                            }
+                            Timber.e(" ${device.macAddress} queue connect error $err")
                         }
 
                     )

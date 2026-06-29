@@ -1,6 +1,5 @@
 package net.ballmerlabs.lesnoop.db
 
-import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -19,7 +18,6 @@ import net.ballmerlabs.lesnoop.db.entity.DiscoveredService
 import net.ballmerlabs.lesnoop.db.entity.Metrics
 import net.ballmerlabs.lesnoop.db.entity.ServiceScanResultMapping
 import net.ballmerlabs.lesnoop.db.entity.ServicesWithChildren
-import timber.log.Timber
 
 @Dao
 interface ScanResultDao {
@@ -43,7 +41,7 @@ interface ScanResultDao {
 
 
     fun attemptConnect(mac: String): Single<Boolean> {
-        return setConnectAttempted(mac).andThen( getConnected(mac))
+        return setConnectAttempted(mac).andThen(getConnected(mac))
     }
 
     @Query("UPDATE scan_results SET connected = '1' WHERE macAddress = :mac")
@@ -59,16 +57,16 @@ interface ScanResultDao {
     fun countMac(mac: String): Single<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertCharacteristic(characteristic: Characteristic): Long
+    fun insertCharacteristic(characteristic: Characteristic): Single<Long>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insertDescriptors(descriptors: List<Descriptor>)
+    fun insertDescriptors(descriptors: List<Descriptor>): Completable
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insertDiscoveredService(service: DiscoveredService): Long
+    fun insertDiscoveredService(service: DiscoveredService): Single<Long>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insertMapping(mapping: ServiceScanResultMapping)
+    fun insertMapping(mapping: ServiceScanResultMapping): Single<Long>
 
     @Update
     fun updateScanResult(scanResult: DbScanResult): Completable
@@ -103,44 +101,4 @@ interface ScanResultDao {
         "UPDATE OR IGNORE metrics SET connected = connected+1 WHERE run = (" + "SELECT run FROM metrics ORDER BY date DESC LIMIT 1)"
     )
     fun incrementConnected(): Completable
-
-    @Insert
-    fun insertService(
-        services: List<ServicesWithChildren>,
-        scanResult: Long? = null,
-        phy: PhyPair? = null
-    ) {
-        for(service in services ) {
-           insertDiscoveredService(service.discoveredService)
-            for (char in service.characteristics) {
-                char.characteristic.parentService = service.discoveredService.uid
-                try {
-                    val l = insertCharacteristic(char.characteristic)
-
-                    try {
-                        insertDescriptors(char.descriptors.map { v ->
-                            v.parentCharacteristic = l
-                            v
-                        })
-                    } catch (exc: SQLiteConstraintException) {
-                        Timber.w("constraint exception $exc on descriptor ${service.discoveredService.uid} $l")
-                    }
-                    if (scanResult != null) {
-                        try {
-                            insertMapping(
-                                ServiceScanResultMapping(
-                                    service = service.discoveredService.uid, scanResult = scanResult
-                                )
-                            )
-                        }  catch (exc: SQLiteConstraintException) {
-                            Timber.w("constraint exception $exc on result mapping ${service.discoveredService.uid}")
-                        }
-                    }
-                } catch (exc: SQLiteConstraintException) {
-                    Timber.w("constraint exception $exc on characteristic ${service.discoveredService.uid}")
-                }
-
-            }
-        }
-    }
 }

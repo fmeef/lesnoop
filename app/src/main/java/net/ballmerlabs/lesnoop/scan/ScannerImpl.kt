@@ -50,6 +50,7 @@ import net.ballmerlabs.lesnoop.ScannerFactory.Companion.PREF_PRIMARY_PHY
 import net.ballmerlabs.lesnoop.ScannerFactory.Companion.PREF_REPORT_DELAY
 import net.ballmerlabs.lesnoop.ScannerFactory.Companion.PREF_REPORT_DELAY_ENABLED
 import net.ballmerlabs.lesnoop.db.ScanResultDao
+import net.ballmerlabs.lesnoop.db.entity.ServiceScanResultMapping
 import net.ballmerlabs.lesnoop.db.entity.ServicesWithChildren
 import net.ballmerlabs.lesnoop.newPendingIntent
 import net.ballmerlabs.lesnoop.rxPrefs
@@ -420,6 +421,43 @@ class ScannerImpl @Inject constructor(
             }
 
     }
+    fun insertService(
+        services: List<ServicesWithChildren>,
+        scanResult: Long? = null,
+    ): Completable {
+        return Observable.fromIterable(services)
+            .flatMapCompletable { service ->
+                database.insertDiscoveredService(service.discoveredService)
+                    .subscribeOn(dbScheduler)
+                    .flatMapCompletable { serviceId ->
+                        Observable.fromIterable(service.characteristics)
+                            .flatMapCompletable { char ->
+                                char.characteristic.parentService = service.discoveredService.uid
+                                database.insertCharacteristic(char.characteristic)
+                                    .subscribeOn(dbScheduler)
+                                    .flatMapCompletable { l ->
+                                    database.insertDescriptors(char.descriptors.map { v ->
+                                        v.parentCharacteristic = l
+                                        v
+                                    }).subscribeOn(dbScheduler).onErrorComplete()
+                                        .andThen(
+                                            if (scanResult != null)
+                                                database.insertMapping(
+                                                    ServiceScanResultMapping(
+                                                        service = service.discoveredService.uid,
+                                                        scanResult = scanResult
+                                                    )
+                                                ).subscribeOn(dbScheduler)
+                                                    .ignoreElement()
+                                                    .onErrorComplete()
+                                            else
+                                                Completable.complete()
+                                        )
+                                }
+                            }
+                    }
+            }
+    }
 
 
     override fun discoverServices(scanResult: RxBleDevice, dbid: Long?): Completable {
@@ -458,9 +496,8 @@ class ScannerImpl @Inject constructor(
                         .toList()
                         .flatMapCompletable { services ->
                             Timber.v("got services: $services")
-                            Completable.fromAction {
-                                database.insertService(services, scanResult = dbid)
-                            }.subscribeOn(dbScheduler)
+                            insertService(services, scanResult = dbid)
+                                .subscribeOn(dbScheduler)
                         }
                         .andThen(
                             database.incrementConnected()

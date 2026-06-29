@@ -5,11 +5,15 @@ import android.view.Display
 import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.Date
 
 @Entity(
-    tableName = "scan_results"
+    tableName = "scan_results",
+    indices = [
+        Index("macAddress", name = "scan_results_mac_idx", unique = false)
+    ]
 )
 data class DbScanResult(
     @PrimaryKey(autoGenerate = true)

@@ -95,8 +95,8 @@ class BroadcastReceiverState @Inject constructor(
 
                 IsConnectable.NOT_CONNECTABLE -> insertWithoutConnecting(result, legacy)
                 IsConnectable.LEGACY_UNKNOWN -> {
-                    insertWithoutConnecting(result, legacy)
                     if (legacy) {
+                        insertWithoutConnecting(result, true)
                         queue.accept(
                             result.bleDevice, s.connectWithDbCache(result, true)
                         )
