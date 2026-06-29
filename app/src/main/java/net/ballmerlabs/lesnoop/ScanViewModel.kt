@@ -16,6 +16,7 @@ import me.bytebeats.views.charts.pie.PieChartData
 import net.ballmerlabs.lesnoop.db.OuiParser
 import net.ballmerlabs.lesnoop.db.ScanDatabase
 import net.ballmerlabs.lesnoop.db.ScanResultDao
+import net.ballmerlabs.lesnoop.scan.ConnectQueue
 import net.ballmerlabs.lesnoop.scan.LocationTagger
 import timber.log.Timber
 import java.io.File
@@ -30,6 +31,7 @@ class ScanViewModel @Inject constructor(
     private val ouiParser: OuiParser,
     val scannerFactory: ScannerFactory,
     val locationTagger: LocationTagger,
+    val connectQueue: ConnectQueue,
     @param:Named(Module.DB_SCHEDULER) private val dbScheduler: Scheduler,
 ) : ViewModel() {
     val currentScans = mutableStateListOf<ScanResult>()

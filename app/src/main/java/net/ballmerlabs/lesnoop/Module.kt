@@ -10,7 +10,6 @@ import android.os.Handler
 import android.os.PowerManager
 import android.view.Display
 import android.view.Display.DEFAULT_DISPLAY
-import androidx.compose.material3.DisplayMode
 import androidx.core.net.toUri
 import androidx.preference.PreferenceManager
 import androidx.room.Room
@@ -29,7 +28,6 @@ import io.reactivex.rxjava3.schedulers.Schedulers
 import net.ballmerlabs.lesnoop.db.MIGATION_2_3
 import net.ballmerlabs.lesnoop.scan.RxBlessedCentralCallback
 import net.ballmerlabs.lesnoop.scan.RxBlessedPeripheralSubcomponent
-import net.ballmerlabs.lesnoop.scan.ScreenOffReceiver
 import java.io.File
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors

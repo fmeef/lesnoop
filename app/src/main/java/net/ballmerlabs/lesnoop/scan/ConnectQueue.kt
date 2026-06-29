@@ -1,16 +1,16 @@
 package net.ballmerlabs.lesnoop.scan
 
 import android.content.SharedPreferences
+import com.jakewharton.rxrelay3.PublishRelay
 import com.polidea.rxandroidble3.RxBleDevice
 import com.polidea.rxandroidble3.exceptions.BleAlreadyConnectedException
 import com.polidea.rxandroidble3.exceptions.BleDisconnectedException
-import io.reactivex.rxjava3.core.Completable
+import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.core.Single
 import io.reactivex.rxjava3.disposables.Disposable
 import net.ballmerlabs.lesnoop.Module
 import net.ballmerlabs.lesnoop.ScannerFactory
-import net.ballmerlabs.lesnoop.db.ScanResultDao
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -25,8 +25,13 @@ class ConnectQueue @Inject constructor(
     val timeoutScheduler: Scheduler
 )  {
 
+    private val connectedStats = PublishRelay.create<Int>()
+
     private val inflight = ConcurrentHashMap<String, Disposable>()
 
+    fun observeConnected(): Observable<Int> {
+        return connectedStats
+    }
 
     fun accept(device: RxBleDevice, value: Single<Boolean>) {
         val max = prefs.getInt(ScannerFactory.PREF_MAX_CONNECTION, 7)
@@ -46,7 +51,6 @@ class ConnectQueue @Inject constructor(
                                 is BleDisconnectedException -> {
                                     when (err.state) {
                                         133 -> shutdown()
-
                                         else -> Unit
                                     }
                                 }
@@ -62,6 +66,7 @@ class ConnectQueue @Inject constructor(
 
                     )
             }
+            connectedStats.accept(inflight.size)
         }
     }
 

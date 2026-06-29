@@ -132,6 +132,7 @@ fun LocationView(modifier: Modifier = Modifier) {
 fun MetricsView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
     val viewModel: ScanViewModel = hiltViewModel()
     val metrics by viewModel.scanResultDao.observeTopMetrics().subscribeAsState(null)
+    val connected by viewModel.connectQueue.observeConnected().subscribeAsState(0)
     val scope = rememberCoroutineScope()
     Column(modifier = modifier,
         horizontalAlignment = Alignment.End,
@@ -142,6 +143,7 @@ fun MetricsView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
             Text("new: ${metrics?.newCount}")
             Text("already seen: ${metrics?.oldCount}")
             Text("connected: ${metrics?.connected}")
+            Text("inflight: $connected")
         }
 
         LocationView()
