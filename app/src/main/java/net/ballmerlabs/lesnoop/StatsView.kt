@@ -2,6 +2,7 @@ package net.ballmerlabs.lesnoop
 
 import android.content.res.Configuration
 import android.net.Uri
+import android.widget.Button
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +31,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +49,7 @@ fun DbChartView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
     val ouis by model.getTopOuis(8).subscribeAsState(mapOf())
     val context = LocalContext.current
     var disp by remember { mutableStateOf<Disposable?>(null) }
+    var clearDisposable by remember { mutableStateOf<Disposable?>(null) }
     val scope = rememberCoroutineScope()
     val toastText = stringResource(R.string.invalid_file_path)
     val launcher = rememberLauncherForActivityResult(
@@ -107,6 +111,26 @@ fun DbChartView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
                         )
                     }) {
                         Text(text = "Import")
+                    }
+
+                    Button(onClick = {
+                       val disp = Completable.fromAction {
+                            model.database.scanResultsDao().deleteStore()
+                        }.subscribeOn(Schedulers.io())
+                           .observeOn(AndroidSchedulers.mainThread())
+                           .subscribe(
+                            {
+                                Toast.makeText(context, "clear complete", Toast.LENGTH_SHORT).show()
+                            },
+                            {err ->
+                                err.printStackTrace()
+                                Toast.makeText(context, "Clear error: $err", Toast.LENGTH_LONG).show()
+                            }
+                        )
+
+                        clearDisposable = disp
+                    }) {
+                        Text("Purge")
                     }
                 }
             }

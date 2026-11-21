@@ -125,6 +125,27 @@ interface ScanResultDao {
     @Query("SELECT * FROM descriptors WHERE parentCharacteristic = :char")
     fun getDescriptorsForCharacteristic(char: Long): Single<List<Descriptor>>
 
+    @Query("DELETE FROM discovered_services")
+    fun deleteDiscoveredServices()
+
+    @Query("DELETE FROM characteristics")
+    fun deleteCharacteristics()
+
+    @Query("DELETE FROM descriptors")
+    fun deleteDescriptors()
+
+    @Query("DELETE FROM scan_results")
+    fun deleteScanResults()
+
+
+    @Transaction
+    fun deleteStore() {
+        deleteScanResults()
+        deleteDiscoveredServices()
+        deleteCharacteristics()
+        deleteDescriptors()
+    }
+
     fun mergeUri(uri: Uri, ctx: Context): Completable {
         val db = Room.databaseBuilder(ctx, ScanDatabase::class.java, "Import")
             .createFromInputStream({ ctx.contentResolver.openInputStream(uri) })
