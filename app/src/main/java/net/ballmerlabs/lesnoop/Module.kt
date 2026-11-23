@@ -12,7 +12,6 @@ import android.view.Display
 import android.view.Display.DEFAULT_DISPLAY
 import androidx.core.net.toUri
 import androidx.preference.PreferenceManager
-import androidx.room.Room
 import com.polidea.rxandroidble3.RxBleClient
 import com.welie.blessed.BluetoothCentralManager
 import dagger.Binds
@@ -25,7 +24,6 @@ import dagger.hilt.components.SingletonComponent
 import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.plugins.RxJavaPlugins
 import io.reactivex.rxjava3.schedulers.Schedulers
-import net.ballmerlabs.lesnoop.db.MIGATION_2_3
 import net.ballmerlabs.lesnoop.scan.RxBlessedCentralCallback
 import net.ballmerlabs.lesnoop.scan.RxBlessedPeripheralSubcomponent
 import java.io.File
@@ -125,9 +123,7 @@ abstract class Module {
         @Provides
         @Singleton
         fun providesDatabase(@ApplicationContext ctx: Context): ScanDatabase {
-            return Room.databaseBuilder(ctx, ScanDatabase::class.java, "ScanDatabase")
-                .addMigrations(MIGATION_2_3)
-                .build()
+            return ScanDatabase.builder(ctx, ScanDatabase.NAME).build()
         }
 
         @Provides
@@ -172,8 +168,9 @@ abstract class Module {
         @Provides
         @Singleton
         @Named(DB_PATH)
-        fun providesDatabasePath(database: ScanDatabase): File {
-            return File(database.openHelper.readableDatabase.path!!)
+        fun providesDatabasePath(@ApplicationContext ctx: Context): File {
+            // openHelper is unavailable when a SQLiteDriver is configured
+            return ctx.getDatabasePath(ScanDatabase.NAME)
         }
     }
 }

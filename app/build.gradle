@@ -74,6 +74,8 @@ dependencies {
     def preference_version = "1.2.1"
 
     implementation "androidx.room:room-runtime:$room_version"
+    // Bundled SQLite (instead of the OS copy) so features like VACUUM INTO work on every API level
+    implementation "androidx.sqlite:sqlite-bundled:2.6.2"
 
 
     // To use Kotlin annotation processing tool (kapt)

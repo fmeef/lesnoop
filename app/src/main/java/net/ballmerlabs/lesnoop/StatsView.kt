@@ -42,6 +42,7 @@ import kotlinx.coroutines.withContext
 import me.bytebeats.views.charts.pie.PieChart
 import me.bytebeats.views.charts.pie.PieChartData
 import timber.log.Timber
+import java.io.File
 
 @Composable
 fun DbChartView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
@@ -56,19 +57,25 @@ fun DbChartView(modifier: Modifier = Modifier, showButtons: Boolean = true) {
         contract = ActivityResultContracts.CreateDocument("application/x-sqlite3")
     ){ uri: Uri? ->
         scope.launch(Dispatchers.IO) {
-            model.database.checkpoint()
-            val f = model.dbPath.inputStream()
-            if (uri != null) {
-                val out = context.contentResolver.openOutputStream(uri)
-                if (out != null) {
-                    Timber.e( "writing $uri")
-                    f.copyTo(out)
-                    out.close()
-                }
-            } else {
-                withContext(Dispatchers.Main)  {
+            if (uri == null) {
+                withContext(Dispatchers.Main) {
                     Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
                 }
+                return@launch
+            }
+            // Snapshot via VACUUM INTO rather than copying the live file, which may have
+            // un-checkpointed pages in the WAL or be modified mid-copy
+            val tmp = File(context.cacheDir, "export.sqlite")
+            try {
+                model.database.exportTo(tmp)
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    Timber.v("writing $uri")
+                    tmp.inputStream().use { it.copyTo(out) }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "failed to export database")
+            } finally {
+                tmp.delete()
             }
         }
     }

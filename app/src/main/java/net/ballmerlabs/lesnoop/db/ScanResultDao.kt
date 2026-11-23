@@ -6,7 +6,6 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Room
 import androidx.room.Transaction
 import androidx.room.Update
 import io.reactivex.rxjava3.core.Completable
@@ -147,9 +146,8 @@ interface ScanResultDao {
     }
 
     fun mergeUri(uri: Uri, ctx: Context): Completable {
-        val db = Room.databaseBuilder(ctx, ScanDatabase::class.java, "Import")
+        val db = ScanDatabase.builder(ctx, "Import")
             .createFromInputStream({ ctx.contentResolver.openInputStream(uri) })
-            .addMigrations(MIGATION_2_3)
             .build()
         val altDao = db.scanResultsDao()
         return altDao.getScanResults().firstOrError()

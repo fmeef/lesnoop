@@ -1,16 +1,21 @@
 package net.ballmerlabs.lesnoop.db
 
-import android.content.ContentValues
-import android.database.sqlite.SQLiteDatabase
+import android.content.Context
 import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RenameTable
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.room.migration.AutoMigrationSpec
 import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room.useWriterConnection
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
+import kotlinx.coroutines.Dispatchers
+import java.io.File
 import net.ballmerlabs.lesnoop.db.entity.Characteristic
 import net.ballmerlabs.lesnoop.db.entity.DbLocation
 import net.ballmerlabs.lesnoop.db.entity.DbScanResult
@@ -21,78 +26,70 @@ import net.ballmerlabs.lesnoop.db.entity.MetricsScanResultMapping
 import net.ballmerlabs.lesnoop.db.entity.ServiceScanResultMapping
 import java.util.UUID
 
+/**
+ * Copies `oldTable` into `newTable`, converting the blob `uuid` column (named by [uuidColumn])
+ * into a string UUID. [longColumns] are copied as-is.
+ */
+private fun copyConvertingUuid(
+    connection: SQLiteConnection,
+    oldTable: String,
+    newTable: String,
+    uuidColumn: String,
+    longColumns: List<String>,
+) {
+    val columns = longColumns + uuidColumn
+    val placeholders = columns.joinToString(", ") { "?" }
+    connection.prepare("SELECT ${columns.joinToString(", ")} FROM $oldTable").use { select ->
+        connection.prepare(
+            "INSERT INTO $newTable (${columns.joinToString(", ")}) VALUES ($placeholders)"
+        ).use { insert ->
+            while (select.step()) {
+                longColumns.forEachIndexed { i, _ ->
+                    insert.bindLong(i + 1, select.getLong(i))
+                }
+                val uuid = UUID.nameUUIDFromBytes(select.getBlob(longColumns.size))
+                insert.bindText(columns.size, uuid.toString())
+                insert.step()
+                insert.reset()
+                insert.clearBindings()
+            }
+        }
+    }
+}
+
 val MIGATION_2_3 = object : Migration(2, 3) {
-    override fun migrate(database: SupportSQLiteDatabase) {
-        database.execSQL("DROP INDEX index_characteristics_uuid_parentService")
-        database.execSQL("ALTER TABLE characteristics RENAME TO characteristics_old")
-        database.execSQL(
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("DROP INDEX index_characteristics_uuid_parentService")
+        connection.execSQL("ALTER TABLE characteristics RENAME TO characteristics_old")
+        connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `characteristics` " +
                     "(`uid` INTEGER PRIMARY KEY AUTOINCREMENT, `uuid` TEXT NOT NULL, `parentService` INTEGER" +
                     ")"
         )
-        database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_characteristics_uuid_parentService` ON `characteristics` (`uuid`, `parentService`)")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_characteristics_uuid_parentService` ON `characteristics` (`uuid`, `parentService`)")
+        copyConvertingUuid(
+            connection, "characteristics_old", "characteristics",
+            uuidColumn = "uuid", longColumns = listOf("uid", "parentService")
+        )
+        connection.execSQL("DROP TABLE characteristics_old")
 
+        connection.execSQL("ALTER TABLE discovered_services RENAME TO discovered_services_old")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `discovered_services` (`uid` TEXT NOT NULL, PRIMARY KEY(`uid`))")
+        copyConvertingUuid(
+            connection, "discovered_services_old", "discovered_services",
+            uuidColumn = "uid", longColumns = listOf()
+        )
+        connection.execSQL("DROP TABLE discovered_services_old")
 
-        val c = database.query("SELECT * FROM characteristics_old")
-        while (c.moveToNext()) {
-            val uuidindex = c.getColumnIndex("uuid")
-            val uidindex = c.getColumnIndex("uid")
-            val parentIndex = c.getColumnIndex("parentService")
-            val blob = c.getBlob(uuidindex)
-            val uuid = UUID.nameUUIDFromBytes(blob)
-            val content = ContentValues().apply {
-                put("uid", c.getLong(uidindex))
-                put("parentService", c.getLong(parentIndex))
-                put("uuid", uuid.toString())
-
-            }
-            database.insert("characteristics", SQLiteDatabase.CONFLICT_ABORT, content)
-        }
-
-        database.execSQL("DROP TABLE characteristics_old")
-
-
-        database.execSQL("ALTER TABLE discovered_services RENAME TO discovered_services_old")
-        database.execSQL("CREATE TABLE IF NOT EXISTS `discovered_services` (`uid` TEXT NOT NULL, PRIMARY KEY(`uid`))")
-
-        val c2 = database.query("SELECT * FROM discovered_services_old")
-        while (c2.moveToNext()) {
-            val uidindex = c2.getColumnIndex("uid")
-            val blob = c2.getBlob(uidindex)
-            val uuid = UUID.nameUUIDFromBytes(blob)
-            val content = ContentValues().apply {
-                put("uid", uuid.toString())
-
-            }
-            database.insert("discovered_services", SQLiteDatabase.CONFLICT_ABORT, content)
-        }
-
-        database.execSQL("DROP TABLE discovered_services_old")
-
-
-        database.execSQL("DROP INDEX index_descriptors_parentCharacteristic_uuid")
-        database.execSQL("ALTER TABLE descriptors RENAME TO descriptors_old")
-        database.execSQL("CREATE TABLE IF NOT EXISTS `descriptors` (`uid` INTEGER PRIMARY KEY AUTOINCREMENT, `parentCharacteristic` INTEGER, `uuid` TEXT NOT NULL)")
-        database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_descriptors_parentCharacteristic_uuid` ON `descriptors` (`parentCharacteristic`, `uuid`)")
-
-        val c3 = database.query("SELECT * FROM descriptors_old")
-        while (c3.moveToNext()) {
-            val uuidindex = c3.getColumnIndex("uuid")
-            val uidindex = c3.getColumnIndex("uid")
-            val parentIndex = c3.getColumnIndex("parentCharacteristic")
-            val blob = c3.getBlob(uuidindex)
-            val uuid = UUID.nameUUIDFromBytes(blob)
-            val content = ContentValues().apply {
-                put("uid", c3.getLong(uidindex))
-                put("parentCharacteristic", c3.getLong(parentIndex))
-                put("uuid", uuid.toString())
-
-            }
-            database.insert("descriptors", SQLiteDatabase.CONFLICT_ABORT, content)
-        }
-
-        database.execSQL("DROP TABLE descriptors_old")
-
+        connection.execSQL("DROP INDEX index_descriptors_parentCharacteristic_uuid")
+        connection.execSQL("ALTER TABLE descriptors RENAME TO descriptors_old")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `descriptors` (`uid` INTEGER PRIMARY KEY AUTOINCREMENT, `parentCharacteristic` INTEGER, `uuid` TEXT NOT NULL)")
+        connection.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_descriptors_parentCharacteristic_uuid` ON `descriptors` (`parentCharacteristic`, `uuid`)")
+        copyConvertingUuid(
+            connection, "descriptors_old", "descriptors",
+            uuidColumn = "uuid", longColumns = listOf("uid", "parentCharacteristic")
+        )
+        connection.execSQL("DROP TABLE descriptors_old")
     }
 }
 
@@ -143,9 +140,27 @@ abstract class ScanDatabase : RoomDatabase() {
     @RenameTable(fromTableName = "ServiceScanResultMapping", toTableName = "scan_service_mapping")
     class AutoMigrationMappingRename : AutoMigrationSpec
 
-    fun checkpoint() {
-        val db = openHelper.writableDatabase
-        db.query("PRAGMA wal_checkpoint(FULL);")
-        db.query("PRAGMA wal_checkpoint(TRUNCATE);")
+    /**
+     * Writes a consistent, self-contained snapshot of the database (no -wal/-shm needed) to [dest]
+     * using SQLite's VACUUM INTO. Safe to call while other connections are writing.
+     */
+    suspend fun exportTo(dest: File) {
+        dest.delete() // VACUUM INTO refuses to overwrite an existing non-empty file
+        useWriterConnection { connection ->
+            connection.usePrepared("VACUUM INTO ?") { stmt ->
+                stmt.bindText(1, dest.absolutePath)
+                stmt.step()
+            }
+        }
+    }
+
+    companion object {
+        const val NAME = "ScanDatabase"
+
+        fun builder(ctx: Context, name: String): Builder<ScanDatabase> =
+            Room.databaseBuilder(ctx, ScanDatabase::class.java, name)
+                .setDriver(BundledSQLiteDriver())
+                .setQueryCoroutineContext(Dispatchers.IO)
+                .addMigrations(MIGATION_2_3)
     }
 }
